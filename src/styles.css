@@ -2907,20 +2907,31 @@ body.is-resizing-y * {
   flex-shrink: 0;
 }
 
-.branch-menu-search {
+.branch-menu-search,
+.branch-list-search {
   position: relative;
   display: block;
+}
+
+.branch-menu-search {
   margin: 0.1rem 0.15rem 0.35rem;
 }
 
-.branch-menu-search input {
+.branch-list-search {
+  flex: 1;
+  max-width: 22rem;
+}
+
+.branch-menu-search input,
+.branch-list-search input {
   width: 100%;
   min-width: 14rem;
   padding: 0.28rem 1.6rem 0.28rem 1.7rem;
   font-size: 12px;
 }
 
-.branch-menu-search input:focus {
+.branch-menu-search input:focus,
+.branch-list-search input:focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -3033,6 +3044,15 @@ body.is-resizing-y * {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+}
+
+.branch-list-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding: 0.55rem 0.75rem 0.45rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .branch-list-hint {

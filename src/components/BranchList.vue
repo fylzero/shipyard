@@ -20,6 +20,18 @@ const emit = defineEmits<{
 
 const selected = ref<string[]>([]);
 const anchor = ref<string | null>(null);
+const query = ref("");
+const searchInput = ref<HTMLInputElement | null>(null);
+const listEl = ref<HTMLElement | null>(null);
+
+const visibleBranches = computed(() => {
+  const branches = props.overview?.branches ?? [];
+  const needle = query.value.trim().toLowerCase();
+  if (!needle) {
+    return branches;
+  }
+  return branches.filter((branch) => branch.name.toLowerCase().includes(needle));
+});
 
 const leftoverCount = computed(
   () =>
@@ -34,18 +46,14 @@ const classifying = computed(
   () => props.overview?.branches.some((branch) => branch.pending) ?? false,
 );
 
-const selectableNames = computed(
-  () =>
-    props.overview?.branches
-      .filter((branch) => canSelect(branch))
-      .map((branch) => branch.name) ?? [],
+const selectableNames = computed(() =>
+  visibleBranches.value.filter((branch) => canSelect(branch)).map((branch) => branch.name),
 );
 
-const selectedBranches = computed(
-  () =>
-    props.overview?.branches.filter(
-      (branch) => selected.value.includes(branch.name) && canSelect(branch),
-    ) ?? [],
+const selectedBranches = computed(() =>
+  visibleBranches.value.filter(
+    (branch) => selected.value.includes(branch.name) && canSelect(branch),
+  ),
 );
 
 function canSelect(branch: LocalBranch) {
@@ -98,6 +106,23 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+function clearQuery() {
+  query.value = "";
+  searchInput.value?.focus();
+}
+
+function onSearchKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape" && query.value) {
+    event.stopPropagation();
+    event.preventDefault();
+    query.value = "";
+  }
+}
+
+watch(query, () => {
+  listEl.value?.scrollTo({ top: 0 });
+});
+
 watch(
   selectableNames,
   (names) => {
@@ -120,7 +145,41 @@ onUnmounted(() => {
 
 <template>
   <div class="branch-pane">
-    <div class="graph-scroll branch-list">
+    <div class="branch-list-header">
+      <label class="branch-list-search">
+        <span class="sr-only">Filter branches</span>
+        <svg class="branch-menu-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+          />
+        </svg>
+        <input
+          ref="searchInput"
+          v-model="query"
+          type="text"
+          placeholder="Filter branches"
+          autocomplete="off"
+          spellcheck="false"
+          @keydown="onSearchKeydown"
+        />
+        <button
+          v-if="query"
+          class="branch-menu-search-clear"
+          type="button"
+          title="Clear search"
+          @mousedown.prevent
+          @click="clearQuery"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </label>
+      <span v-if="overview && query.trim()" class="muted tiny">
+        {{ visibleBranches.length }} of {{ overview.branches.length }}
+      </span>
+    </div>
+    <div ref="listEl" class="graph-scroll branch-list">
       <p v-if="!overview" class="muted tiny branch-list-hint">
         <span class="spinner" aria-hidden="true" />
         <span>Loading branches…</span>
@@ -144,8 +203,11 @@ onUnmounted(() => {
       <p v-if="overview && !overview.branches.length" class="muted tiny empty-files">
         No local branches.
       </p>
+      <p v-else-if="overview && !visibleBranches.length" class="muted tiny empty-files">
+        No branches match that search.
+      </p>
       <div
-        v-for="branch in overview?.branches ?? []"
+        v-for="branch in visibleBranches"
         :key="branch.name"
         class="branch-row"
         :class="{
