@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from "vue";
+import { computed, nextTick, onUnmounted, ref, watch } from "vue";
+import { homeDir } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../composables/useApp";
 import { useTabs } from "../composables/useTabs";
 import type { RepoGroup } from "../types";
+import Modal from "../components/Modal.vue";
 import RepoGroupCard from "../components/RepoGroupCard.vue";
 import RepoRow from "../components/RepoRow.vue";
 
@@ -22,6 +24,7 @@ const {
   standaloneRepos,
   setAllGroupsExpanded,
   addStandaloneRepo,
+  cloneStandaloneRepo,
   removeStandaloneRepo,
   refreshAll,
   cancelRefresh,
@@ -37,6 +40,7 @@ const {
   reorderGroups,
   reorderStandaloneRepos,
   repoDisplayName,
+  showToast,
 } = useApp();
 const { hasTab, closeRepos } = useTabs();
 const creating = ref(false);
@@ -341,6 +345,105 @@ async function removeStandalone(repoId: string) {
     closeRepos([repoId]);
   }
 }
+
+const cloningOpen = ref(false);
+const cloning = ref(false);
+const cloneUrl = ref("");
+const cloneParent = ref("");
+const cloneName = ref("");
+const cloneNameEdited = ref(false);
+const cloneError = ref("");
+const cloneUrlInput = ref<HTMLInputElement | null>(null);
+
+const canClone = computed(
+  () =>
+    !cloning.value &&
+    Boolean(cloneUrl.value.trim() && cloneParent.value.trim() && cloneName.value.trim()),
+);
+
+const cloneDestination = computed(() => {
+  const parent = cloneParent.value.trim().replace(/\/+$/, "");
+  const name = cloneName.value.trim();
+  return parent && name ? `${parent}/${name}` : "";
+});
+
+function repoNameFromUrl(url: string) {
+  const trimmed = url.trim().replace(/[/\\]+$/, "").replace(/\/\.git$/, "");
+  const last = trimmed.split(/[/:\\]/).pop() ?? "";
+  return last.replace(/\.git$/i, "");
+}
+
+function parentDir(path: string) {
+  const index = path.replace(/\/+$/, "").lastIndexOf("/");
+  return index > 0 ? path.slice(0, index) : "";
+}
+
+async function defaultCloneParent() {
+  const repos = [...groups.value.flatMap((group) => group.repos), ...standaloneRepos.value];
+  const recent = repos.length ? parentDir(repos[repos.length - 1].path) : "";
+  if (recent) {
+    return recent;
+  }
+  try {
+    return await homeDir();
+  } catch {
+    return "";
+  }
+}
+
+watch(cloneUrl, (url) => {
+  if (!cloneNameEdited.value) {
+    cloneName.value = repoNameFromUrl(url);
+  }
+});
+
+async function openClone() {
+  cloneUrl.value = "";
+  cloneName.value = "";
+  cloneNameEdited.value = false;
+  cloneError.value = "";
+  cloneParent.value = await defaultCloneParent();
+  cloningOpen.value = true;
+  await nextTick();
+  cloneUrlInput.value?.focus();
+}
+
+function closeClone() {
+  if (cloning.value) {
+    return;
+  }
+  cloningOpen.value = false;
+}
+
+async function pickCloneParent() {
+  const selected = await open({
+    directory: true,
+    multiple: false,
+    title: "Choose where to clone",
+    defaultPath: cloneParent.value || undefined,
+  });
+  if (typeof selected === "string") {
+    cloneParent.value = selected;
+  }
+}
+
+async function cloneRepo() {
+  if (!canClone.value) {
+    return;
+  }
+  cloning.value = true;
+  cloneError.value = "";
+  try {
+    const name = cloneName.value.trim();
+    await cloneStandaloneRepo(cloneUrl.value.trim(), cloneParent.value.trim(), name);
+    cloningOpen.value = false;
+    showToast(`Cloned ${name}.`);
+  } catch (err) {
+    cloneError.value = String(err);
+  } finally {
+    cloning.value = false;
+  }
+}
 </script>
 
 <template>
@@ -365,6 +468,7 @@ async function removeStandalone(repoId: string) {
               New group
             </button>
             <button class="ghost" type="button" @click="pickStandaloneRepo">Add repository</button>
+            <button class="ghost" type="button" @click="openClone">Clone repository</button>
           </div>
           <div class="toolbar-end">
             <button
@@ -493,4 +597,59 @@ async function removeStandalone(repoId: string) {
       </div>
     </div>
   </div>
+  <Modal v-if="cloningOpen" title="Clone repository" medium @close="closeClone">
+    <label class="modal-label">
+      <span class="muted tiny">Repository URL</span>
+      <input
+        ref="cloneUrlInput"
+        v-model="cloneUrl"
+        type="text"
+        placeholder="https://github.com/owner/repo.git"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        :disabled="cloning"
+        @keydown.enter.prevent="cloneRepo"
+      />
+    </label>
+    <label class="modal-label">
+      <span class="muted tiny">Location</span>
+      <span class="clone-location">
+        <input
+          v-model="cloneParent"
+          type="text"
+          placeholder="/Users/me/Code"
+          spellcheck="false"
+          :disabled="cloning"
+          @keydown.enter.prevent="cloneRepo"
+        />
+        <button class="ghost" type="button" :disabled="cloning" @click="pickCloneParent">
+          Browse…
+        </button>
+      </span>
+    </label>
+    <label class="modal-label">
+      <span class="muted tiny">Folder name</span>
+      <input
+        v-model="cloneName"
+        type="text"
+        placeholder="repo"
+        spellcheck="false"
+        :disabled="cloning"
+        @input="cloneNameEdited = true"
+        @keydown.enter.prevent="cloneRepo"
+      />
+    </label>
+    <p v-if="cloneError" class="settings-error clone-error">{{ cloneError }}</p>
+    <p v-else-if="cloneDestination" class="muted tiny">
+      Clones into {{ cloneDestination }} and adds it to Shipyard.
+    </p>
+    <template #actions>
+      <button class="ghost" type="button" :disabled="cloning" @click="closeClone">Cancel</button>
+      <button class="primary" type="button" :disabled="!canClone" @click="cloneRepo">
+        <span v-if="cloning" class="spinner" aria-hidden="true" />
+        {{ cloning ? "Cloning…" : "Clone" }}
+      </button>
+    </template>
+  </Modal>
 </template>
