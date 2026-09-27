@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../composables/useApp";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
 import { useTabs } from "../composables/useTabs";
 import { contrastingText, DEFAULT_HEADER_COLOR } from "../color";
-import type { RepoGroup } from "../types";
+import type { RepoEntry, RepoGroup } from "../types";
 import BranchIcon from "./BranchIcon.vue";
 import Modal from "./Modal.vue";
 import RepoRow from "./RepoRow.vue";
@@ -24,12 +24,16 @@ const props = defineProps<{
   draft?: boolean;
   sortable?: boolean;
   dragging?: boolean;
+  repos?: RepoEntry[];
+  reposSortable?: boolean;
+  draggingRepoId?: string | null;
 }>();
 
 const emit = defineEmits<{
   created: [];
   cancel: [];
   reorderStart: [event: PointerEvent, groupId: string];
+  repoDragStart: [event: PointerEvent, repoId: string];
 }>();
 
 const {
@@ -86,71 +90,7 @@ const canSortAlpha = computed(
     canSort.value &&
     alphaIds.value.join("\0") !== props.group.repos.map((repo) => repo.id).join("\0"),
 );
-const draggingId = ref<string | null>(null);
-const draftIds = ref<string[] | null>(null);
-const visibleRepos = computed(() => {
-  const ids = draftIds.value ?? props.group.repos.map((repo) => repo.id);
-  const byId = new Map(props.group.repos.map((repo) => [repo.id, repo]));
-  return ids.flatMap((id) => {
-    const repo = byId.get(id);
-    return repo ? [repo] : [];
-  });
-});
-
-function moveDraggingTo(targetId: string, before: boolean) {
-  const dragging = draggingId.value;
-  if (!dragging || dragging === targetId) {
-    return;
-  }
-  const ids = [...(draftIds.value ?? props.group.repos.map((repo) => repo.id))];
-  const from = ids.indexOf(dragging);
-  if (from === -1) {
-    return;
-  }
-  ids.splice(from, 1);
-  let to = ids.indexOf(targetId);
-  if (to === -1) {
-    return;
-  }
-  if (!before) {
-    to += 1;
-  }
-  ids.splice(to, 0, dragging);
-  if (ids.join("\0") !== (draftIds.value ?? []).join("\0")) {
-    draftIds.value = ids;
-  }
-}
-
-function onReorderMove(event: PointerEvent) {
-  if (!draggingId.value) {
-    return;
-  }
-  const node = document.elementFromPoint(event.clientX, event.clientY);
-  const row = node instanceof Element ? node.closest("[data-repo-id]") : null;
-  if (!(row instanceof HTMLElement) || !row.dataset.repoId) {
-    return;
-  }
-  const rect = row.getBoundingClientRect();
-  moveDraggingTo(row.dataset.repoId, event.clientY < rect.top + rect.height / 2);
-}
-
-async function finishReorder() {
-  window.removeEventListener("pointermove", onReorderMove);
-  window.removeEventListener("pointerup", finishReorder);
-  window.removeEventListener("pointercancel", finishReorder);
-  document.body.classList.remove("reordering-repos");
-  const ids = draftIds.value;
-  draggingId.value = null;
-  draftIds.value = null;
-  if (!ids || ids.join("\0") === props.group.repos.map((repo) => repo.id).join("\0")) {
-    return;
-  }
-  try {
-    await reorderGroupRepos(props.group.id, ids);
-  } catch (err) {
-    window.alert(String(err));
-  }
-}
+const visibleRepos = computed(() => props.repos ?? props.group.repos);
 
 async function sortAlphabetically() {
   closeMenus();
@@ -162,19 +102,6 @@ async function sortAlphabetically() {
   } catch (err) {
     window.alert(String(err));
   }
-}
-
-function onReorderStart(event: PointerEvent, repoId: string) {
-  if (event.button !== 0 || !canSort.value) {
-    return;
-  }
-  event.preventDefault();
-  draggingId.value = repoId;
-  draftIds.value = props.group.repos.map((repo) => repo.id);
-  document.body.classList.add("reordering-repos");
-  window.addEventListener("pointermove", onReorderMove);
-  window.addEventListener("pointerup", finishReorder);
-  window.addEventListener("pointercancel", finishReorder);
 }
 
 const nameInput = ref<HTMLInputElement | null>(null);
@@ -208,13 +135,6 @@ onMounted(() => {
   if (props.draft) {
     void nextTick(() => nameInput.value?.focus());
   }
-});
-
-onUnmounted(() => {
-  window.removeEventListener("pointermove", onReorderMove);
-  window.removeEventListener("pointerup", finishReorder);
-  window.removeEventListener("pointercancel", finishReorder);
-  document.body.classList.remove("reordering-repos");
 });
 
 const actionLabel = computed(() => busy.value[props.group.id] ?? "");
@@ -520,6 +440,7 @@ function onHeaderClick(event: MouseEvent) {
     class="group"
     :class="{ dragging, sortable }"
     :data-group-id="draft ? undefined : group.id"
+    :data-repo-list="draft ? undefined : group.id"
   >
     <div
       class="group-header"
@@ -567,7 +488,7 @@ function onHeaderClick(event: MouseEvent) {
           @keydown.escape="cancelRename"
         />
         <span v-else class="group-title">{{ group.name }}</span>
-        <span v-if="!renaming" class="group-count">{{ group.repos.length }}</span>
+        <span v-if="!renaming" class="group-count">{{ visibleRepos.length }}</span>
         <label v-if="renaming" class="color-picker">
           <span class="color-picker-label">Color</span>
           <span class="color-picker-swatch" aria-hidden="true">
@@ -751,21 +672,25 @@ function onHeaderClick(event: MouseEvent) {
     </div>
 
     <div
-      v-if="group.expanded && group.repos.length"
+      v-if="group.expanded && visibleRepos.length"
       class="group-body"
-      :class="{ reordering: Boolean(draggingId) }"
+      :class="{ reordering: Boolean(draggingRepoId) }"
     >
       <RepoRow
         v-for="repo in visibleRepos"
         :key="repo.id"
         :repo="repo"
         :sibling-ids="siblingIds"
-        :sortable="canSort"
-        :dragging="draggingId === repo.id"
+        :sortable="!draft && reposSortable"
+        :dragging="draggingRepoId === repo.id"
         @remove="removeAndLeave"
-        @reorder-start="onReorderStart"
+        @reorder-start="(event, id) => emit('repoDragStart', event, id)"
       />
     </div>
+    <p v-else-if="group.expanded && !draft" class="muted tiny group-empty">
+      No repositories yet.
+      <button class="link-button" type="button" @click="pickRepo">Add one</button>
+    </p>
 
     <Modal v-if="modal === 'pull'" title="Pull from remote" @close="closeModal">
       <p class="pull-summary">

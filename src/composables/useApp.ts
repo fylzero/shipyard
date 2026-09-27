@@ -887,6 +887,41 @@ export function useApp() {
     }
   }
 
+  function repoListFor(groupId: string) {
+    if (groupId === STANDALONE_GROUP_ID) {
+      return standaloneRepos.value;
+    }
+    return groups.value.find((item) => item.id === groupId)?.repos ?? null;
+  }
+
+  function setRepoList(groupId: string, repos: RepoEntry[]) {
+    if (groupId === STANDALONE_GROUP_ID) {
+      standaloneRepos.value = repos;
+    } else {
+      patchGroup(groupId, { repos });
+    }
+  }
+
+  async function moveRepo(repoId: string, fromGroupId: string, toGroupId: string, index: number) {
+    const source = repoListFor(fromGroupId);
+    const target = repoListFor(toGroupId);
+    const repo = source?.find((item) => item.id === repoId);
+    if (!source || !target || !repo || fromGroupId === toGroupId) {
+      return;
+    }
+    const nextTarget = [...target];
+    nextTarget.splice(Math.min(index, nextTarget.length), 0, repo);
+    setRepoList(fromGroupId, source.filter((item) => item.id !== repoId));
+    setRepoList(toGroupId, nextTarget);
+    try {
+      await api.moveRepo(repoId, fromGroupId, toGroupId, index);
+    } catch (err) {
+      setRepoList(fromGroupId, source);
+      setRepoList(toGroupId, target);
+      throw err;
+    }
+  }
+
   function repoDisplayName(repoId: string, path: string) {
     return (
       statuses.value[repoId]?.name ??
@@ -1428,6 +1463,7 @@ export function useApp() {
     reorderGroups,
     reorderStandaloneRepos,
     reorderGroupRepos,
+    moveRepo,
     repoDisplayName,
     runAction,
     clearResults,

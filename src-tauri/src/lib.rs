@@ -77,6 +77,7 @@ pub fn run() {
             commands::reorder_group_repos,
             commands::reorder_standalone_repos,
             commands::reorder_groups,
+            commands::move_repo,
             commands::group_status,
             commands::refresh_repo,
             commands::pull_repo,

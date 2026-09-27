@@ -6,6 +6,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.8.0",
+    date: "September 26, 2026",
+    notes: [
+      "Repos can be dragged into, out of, and between groups. Drop a repo on another group's list or its header to move it there, or drag it to the top of the dashboard to take it out of its group.",
+      "Collapsed and empty groups accept drops too. When there are no ungrouped repos, a drop area appears at the top while you drag.",
+      "Repos can't be moved between groups while a fetch, pull, or checkout is running on either one. Reordering inside a group still works.",
+      "An empty group shows No repositories yet with an Add one link instead of just its header.",
+    ],
+  },
+  {
     version: "1.7.0",
     date: "September 26, 2026",
     notes: [

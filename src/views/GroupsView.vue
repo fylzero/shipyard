@@ -4,7 +4,7 @@ import { homeDir } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../composables/useApp";
 import { useTabs } from "../composables/useTabs";
-import type { RepoGroup } from "../types";
+import { STANDALONE_GROUP_ID, type RepoEntry, type RepoGroup } from "../types";
 import Modal from "../components/Modal.vue";
 import RepoGroupCard from "../components/RepoGroupCard.vue";
 import RepoRow from "../components/RepoRow.vue";
@@ -39,6 +39,9 @@ const {
   pullProgressLabel,
   reorderGroups,
   reorderStandaloneRepos,
+  reorderGroupRepos,
+  moveRepo,
+  busy,
   repoDisplayName,
   showToast,
 } = useApp();
@@ -67,17 +70,32 @@ const canStartPullAll = computed(
 );
 
 const canSortStandalone = computed(() => standaloneRepos.value.length > 1);
-const draggingStandaloneId = ref<string | null>(null);
-const draftStandaloneIds = ref<string[] | null>(null);
-const visibleStandalone = computed(() => {
-  const ids = draftStandaloneIds.value ?? standaloneRepos.value.map((repo) => repo.id);
-  const byId = new Map(standaloneRepos.value.map((repo) => [repo.id, repo]));
+const canDragRepos = computed(() => groups.value.length > 0 || canSortStandalone.value);
+const draggingRepo = ref<{ id: string; from: string } | null>(null);
+const draftRepoLists = ref<Record<string, string[]> | null>(null);
+const repoById = computed(() => {
+  const map = new Map<string, RepoEntry>();
+  standaloneRepos.value.forEach((repo) => map.set(repo.id, repo));
+  groups.value.forEach((group) => group.repos.forEach((repo) => map.set(repo.id, repo)));
+  return map;
+});
+
+function draftRepos(listId: string, saved: RepoEntry[]) {
+  const ids = draftRepoLists.value?.[listId];
+  if (!ids) {
+    return saved;
+  }
   return ids.flatMap((id) => {
-    const repo = byId.get(id);
+    const repo = repoById.value.get(id);
     return repo ? [repo] : [];
   });
-});
+}
+
+const visibleStandalone = computed(() => draftRepos(STANDALONE_GROUP_ID, standaloneRepos.value));
 const standaloneIds = computed(() => visibleStandalone.value.map((repo) => repo.id));
+const groupRepos = computed(() =>
+  Object.fromEntries(groups.value.map((group) => [group.id, draftRepos(group.id, group.repos)])),
+);
 
 const isEmpty = computed(() => !groups.value.length && !standaloneRepos.value.length);
 
@@ -203,72 +221,123 @@ async function finishReorderGroups() {
   }
 }
 
-function moveDraggingStandaloneTo(targetId: string, before: boolean) {
-  const dragging = draggingStandaloneId.value;
-  if (!dragging || dragging === targetId) {
+function savedRepoLists(): Record<string, string[]> {
+  return {
+    [STANDALONE_GROUP_ID]: standaloneRepos.value.map((repo) => repo.id),
+    ...Object.fromEntries(groups.value.map((group) => [group.id, group.repos.map((repo) => repo.id)])),
+  };
+}
+
+function draftListOf(lists: Record<string, string[]>, repoId: string) {
+  return Object.keys(lists).find((listId) => lists[listId].includes(repoId)) ?? null;
+}
+
+/** Group-wide pulls, checkouts, and fetches track progress by each group's repo count. */
+function repoListLocked(listId: string) {
+  return Boolean(busy.value[listId]) || refreshingAll.value || pullingAll.value;
+}
+
+function placeDraggingRepo(listId: string, targetId: string | null, before: boolean) {
+  const drag = draggingRepo.value;
+  const lists = draftRepoLists.value;
+  if (!drag || !lists || !(listId in lists) || targetId === drag.id) {
     return;
   }
-  const ids = [...(draftStandaloneIds.value ?? standaloneRepos.value.map((repo) => repo.id))];
-  const from = ids.indexOf(dragging);
-  if (from === -1) {
+  const current = draftListOf(lists, drag.id);
+  if (!current) {
     return;
   }
-  ids.splice(from, 1);
-  let to = ids.indexOf(targetId);
+  if (listId !== drag.from && (repoListLocked(listId) || repoListLocked(drag.from))) {
+    return;
+  }
+  const next = { ...lists, [current]: lists[current].filter((id) => id !== drag.id) };
+  const ids = [...next[listId]];
+  let to = targetId ? ids.indexOf(targetId) : ids.length;
   if (to === -1) {
     return;
   }
-  if (!before) {
+  if (targetId && !before) {
     to += 1;
   }
-  ids.splice(to, 0, dragging);
-  if (ids.join("\0") !== (draftStandaloneIds.value ?? []).join("\0")) {
-    draftStandaloneIds.value = ids;
+  ids.splice(to, 0, drag.id);
+  next[listId] = ids;
+  if (current === listId && ids.join("\0") === lists[listId].join("\0")) {
+    return;
   }
+  draftRepoLists.value = next;
 }
 
-function onReorderStandaloneMove(event: PointerEvent) {
-  if (!draggingStandaloneId.value) {
+function onRepoDragMove(event: PointerEvent) {
+  const drag = draggingRepo.value;
+  const lists = draftRepoLists.value;
+  if (!drag || !lists) {
     return;
   }
   const node = document.elementFromPoint(event.clientX, event.clientY);
-  const row = node instanceof Element ? node.closest("[data-repo-id]") : null;
-  if (!(row instanceof HTMLElement) || !row.dataset.repoId) {
+  if (!(node instanceof Element)) {
     return;
   }
-  const rect = row.getBoundingClientRect();
-  moveDraggingStandaloneTo(row.dataset.repoId, event.clientY < rect.top + rect.height / 2);
+  const list = node.closest("[data-repo-list]");
+  if (!(list instanceof HTMLElement) || !list.dataset.repoList) {
+    return;
+  }
+  const listId = list.dataset.repoList;
+  const row = node.closest("[data-repo-id]");
+  if (row instanceof HTMLElement && row.dataset.repoId && list.contains(row)) {
+    const rect = row.getBoundingClientRect();
+    placeDraggingRepo(listId, row.dataset.repoId, event.clientY < rect.top + rect.height / 2);
+  } else if (draftListOf(lists, drag.id) !== listId) {
+    placeDraggingRepo(listId, null, false);
+  }
 }
 
-async function finishReorderStandalone() {
-  window.removeEventListener("pointermove", onReorderStandaloneMove);
-  window.removeEventListener("pointerup", finishReorderStandalone);
-  window.removeEventListener("pointercancel", finishReorderStandalone);
+function stopRepoDrag() {
+  window.removeEventListener("pointermove", onRepoDragMove);
+  window.removeEventListener("pointerup", finishRepoDrag);
+  window.removeEventListener("pointercancel", finishRepoDrag);
   document.body.classList.remove("reordering-repos");
-  const ids = draftStandaloneIds.value;
-  draggingStandaloneId.value = null;
-  draftStandaloneIds.value = null;
-  if (!ids || ids.join("\0") === standaloneRepos.value.map((repo) => repo.id).join("\0")) {
+}
+
+async function finishRepoDrag() {
+  stopRepoDrag();
+  const drag = draggingRepo.value;
+  const lists = draftRepoLists.value;
+  draggingRepo.value = null;
+  draftRepoLists.value = null;
+  if (!drag || !lists) {
     return;
   }
+  const target = draftListOf(lists, drag.id);
+  if (!target) {
+    return;
+  }
+  const ids = lists[target];
   try {
-    await reorderStandaloneRepos(ids);
+    if (target !== drag.from) {
+      await moveRepo(drag.id, drag.from, target, ids.indexOf(drag.id));
+    } else if (ids.join("\0") !== savedRepoLists()[target]?.join("\0")) {
+      if (target === STANDALONE_GROUP_ID) {
+        await reorderStandaloneRepos(ids);
+      } else {
+        await reorderGroupRepos(target, ids);
+      }
+    }
   } catch (err) {
     window.alert(String(err));
   }
 }
 
-function onReorderStandaloneStart(event: PointerEvent, repoId: string) {
-  if (event.button !== 0 || !canSortStandalone.value) {
+function onRepoDragStart(event: PointerEvent, repoId: string, from: string) {
+  if (event.button !== 0 || !canDragRepos.value) {
     return;
   }
   event.preventDefault();
-  draggingStandaloneId.value = repoId;
-  draftStandaloneIds.value = standaloneRepos.value.map((repo) => repo.id);
+  draggingRepo.value = { id: repoId, from };
+  draftRepoLists.value = savedRepoLists();
   document.body.classList.add("reordering-repos");
-  window.addEventListener("pointermove", onReorderStandaloneMove);
-  window.addEventListener("pointerup", finishReorderStandalone);
-  window.addEventListener("pointercancel", finishReorderStandalone);
+  window.addEventListener("pointermove", onRepoDragMove);
+  window.addEventListener("pointerup", finishRepoDrag);
+  window.addEventListener("pointercancel", finishRepoDrag);
 }
 
 function onReorderGroupsStart(event: PointerEvent, groupId: string) {
@@ -304,11 +373,8 @@ onUnmounted(() => {
   window.removeEventListener("pointermove", onReorderGroupsMove);
   window.removeEventListener("pointerup", finishReorderGroups);
   window.removeEventListener("pointercancel", finishReorderGroups);
-  window.removeEventListener("pointermove", onReorderStandaloneMove);
-  window.removeEventListener("pointerup", finishReorderStandalone);
-  window.removeEventListener("pointercancel", finishReorderStandalone);
+  stopRepoDrag();
   document.body.classList.remove("reordering-groups");
-  document.body.classList.remove("reordering-repos");
 });
 
 function startCreate() {
@@ -560,9 +626,10 @@ async function cloneRepo() {
         </p>
 
         <div
-          v-if="standaloneRepos.length"
+          v-if="visibleStandalone.length || draggingRepo"
           class="standalone-list"
-          :class="{ reordering: Boolean(draggingStandaloneId) }"
+          :class="{ reordering: Boolean(draggingRepo) }"
+          :data-repo-list="STANDALONE_GROUP_ID"
         >
           <RepoRow
             v-for="repo in visibleStandalone"
@@ -570,11 +637,14 @@ async function cloneRepo() {
             :repo="repo"
             :sibling-ids="standaloneIds"
             flush
-            :sortable="canSortStandalone"
-            :dragging="draggingStandaloneId === repo.id"
+            :sortable="canDragRepos"
+            :dragging="draggingRepo?.id === repo.id"
             @remove="removeStandalone"
-            @reorder-start="onReorderStandaloneStart"
+            @reorder-start="(event, id) => onRepoDragStart(event, id, STANDALONE_GROUP_ID)"
           />
+          <p v-if="!visibleStandalone.length" class="muted tiny standalone-drop">
+            Drop here to remove from group
+          </p>
         </div>
 
         <div class="groups-list" :class="{ reordering: Boolean(draggingGroupId) }">
@@ -591,7 +661,11 @@ async function cloneRepo() {
             :group="group"
             :sortable="canSortGroups"
             :dragging="draggingGroupId === group.id"
+            :repos="groupRepos[group.id]"
+            :repos-sortable="canDragRepos"
+            :dragging-repo-id="draggingRepo?.id ?? null"
             @reorder-start="onReorderGroupsStart"
+            @repo-drag-start="(event, id) => onRepoDragStart(event, id, group.id)"
           />
         </div>
       </div>
