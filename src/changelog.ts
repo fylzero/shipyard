@@ -6,6 +6,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.7.0",
+    date: "September 26, 2026",
+    notes: [
+      "The dashboard has a Clone repository button next to Add repository. Paste a URL, pick where to put it, and Shipyard clones the repo and adds it to your list.",
+      "The folder name fills in from the URL, and the location starts next to the repo you added most recently, or your home folder. Both can be changed before cloning.",
+      "If the clone fails, git's error is shown in the dialog so you can fix the URL or folder and try again.",
+    ],
+  },
+  {
     version: "1.6.2",
     date: "September 25, 2026",
     notes: [
