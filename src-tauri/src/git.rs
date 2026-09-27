@@ -427,10 +427,10 @@ pub fn repo_root(git: &Path, path: &Path) -> Result<String, String> {
 pub fn clone_repo(git: &Path, url: &str, parent: &Path, name: &str) -> Result<PathBuf, String> {
     let url = url.trim();
     if url.is_empty() {
-        return Err("Enter a repository URL.".into());
+        return Err("Enter a repository URL or SSH address.".into());
     }
     if url.starts_with('-') || url.chars().any(char::is_control) {
-        return Err("Invalid repository URL.".into());
+        return Err("Invalid repository address.".into());
     }
     let name = name.trim();
     if name.is_empty()
@@ -456,11 +456,32 @@ pub fn clone_repo(git: &Path, url: &str, parent: &Path, name: &str) -> Result<Pa
     let dest_arg = dest
         .to_str()
         .ok_or_else(|| "Destination path is not valid UTF-8".to_string())?;
-    let output = run_git(git, parent, &["clone", "--", url, dest_arg])?;
+    /*
+     * There is no terminal to answer ssh prompts, so ssh runs in batch mode. A host
+     * seen for the first time is trusted and recorded; a changed host key still fails.
+     */
+    let env = [
+        ("GCM_INTERACTIVE", Path::new("Never")),
+        (
+            "GIT_SSH_COMMAND",
+            Path::new("ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new"),
+        ),
+    ];
+    let output = run_git_command(git, parent, &["clone", "--", url, dest_arg], &env, true)?;
     if !output.success {
-        return Err(or_fallback(&combined_message(&output), "Clone failed."));
+        return Err(clone_error_message(&output));
     }
     Ok(dest)
+}
+
+fn clone_error_message(output: &GitOutput) -> String {
+    let message = or_fallback(&combined_message(output), "Clone failed.");
+    if output.stderr.contains("Permission denied (publickey") {
+        return format!(
+            "{message}\n\nYour SSH key was not accepted. Make sure it is loaded in your SSH agent (ssh-add) and added to your account on the host."
+        );
+    }
+    message
 }
 
 pub struct LiveStatus {
@@ -4700,6 +4721,22 @@ mod tests {
         let err = clone_repo(&git, parent.join("nope").to_str().unwrap(), &parent, "repo").unwrap_err();
         assert!(!err.is_empty());
         assert!(!parent.join("repo").exists());
+    }
+
+    #[test]
+    fn clone_error_explains_rejected_ssh_key() {
+        let output = |stderr: &str| GitOutput {
+            stdout: String::new(),
+            stderr: stderr.into(),
+            success: false,
+        };
+        let denied = clone_error_message(&output(
+            "git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.",
+        ));
+        assert!(denied.starts_with("git@github.com: Permission denied"), "{denied}");
+        assert!(denied.contains("ssh-add"), "{denied}");
+        assert_eq!(clone_error_message(&output("fatal: repository not found")), "fatal: repository not found");
+        assert_eq!(clone_error_message(&output("")), "Clone failed.");
     }
 
     #[test]

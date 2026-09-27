@@ -673,12 +673,12 @@ async function cloneRepo() {
   </div>
   <Modal v-if="cloningOpen" title="Clone repository" medium @close="closeClone">
     <label class="modal-label">
-      <span class="muted tiny">Repository URL</span>
+      <span class="muted tiny">Repository URL or SSH address</span>
       <input
         ref="cloneUrlInput"
         v-model="cloneUrl"
         type="text"
-        placeholder="https://github.com/owner/repo.git"
+        placeholder="git@github.com:owner/repo.git"
         autocapitalize="off"
         autocorrect="off"
         spellcheck="false"

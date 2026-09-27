@@ -6,6 +6,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.8.1",
+    date: "September 26, 2026",
+    notes: [
+      "Clone repository accepts SSH addresses like git@github.com:owner/repo.git as well as HTTPS URLs.",
+      "Cloning over SSH no longer fails the first time you clone from a host. Shipyard trusts the host and remembers it, but still refuses if a known host's key has changed.",
+      "If the host rejects your SSH key, the error explains how to fix it: load the key into your SSH agent with ssh-add and add it to your account on the host.",
+    ],
+  },
+  {
     version: "1.8.0",
     date: "September 26, 2026",
     notes: [
