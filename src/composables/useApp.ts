@@ -782,7 +782,14 @@ export function useApp() {
   }
 
   async function addStandaloneRepo(path: string) {
-    const repo = await api.addStandaloneRepo(path);
+    return trackStandaloneRepo(await api.addStandaloneRepo(path));
+  }
+
+  async function cloneStandaloneRepo(url: string, parent: string, name: string) {
+    return trackStandaloneRepo(await api.cloneStandaloneRepo(url, parent, name));
+  }
+
+  async function trackStandaloneRepo(repo: RepoEntry) {
     standaloneRepos.value = [...standaloneRepos.value, repo];
     applyStatus(await api.refreshRepo(STANDALONE_GROUP_ID, repo.id, false));
     return repo;
@@ -1414,6 +1421,7 @@ export function useApp() {
     saveSettings,
     addRepo,
     addStandaloneRepo,
+    cloneStandaloneRepo,
     updateStandaloneRepo,
     removeStandaloneRepo,
     removeRepo,

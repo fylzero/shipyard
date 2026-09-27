@@ -413,6 +413,27 @@ button.toast:hover .toast-action {
   appearance: none;
 }
 
+.clone-location {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.clone-location input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.clone-location button {
+  flex: 0 0 auto;
+}
+
+.clone-error {
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .radio-list {
   display: flex;
   flex-direction: column;

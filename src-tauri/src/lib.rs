@@ -69,6 +69,7 @@ pub fn run() {
             commands::replace_app_data,
             commands::add_repo,
             commands::add_standalone_repo,
+            commands::clone_standalone_repo,
             commands::update_standalone_repo,
             commands::remove_standalone_repo,
             commands::standalone_status,

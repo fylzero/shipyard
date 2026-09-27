@@ -589,7 +589,34 @@ pub fn add_standalone_repo(
     path: String,
 ) -> Result<RepoEntry, String> {
     let git = require_git(&state)?;
-    let root = git::repo_root(&git, Path::new(&path))?;
+    register_standalone_repo(&app, &state, &git, Path::new(&path))
+}
+
+#[tauri::command]
+pub async fn clone_standalone_repo(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    url: String,
+    parent: String,
+    name: String,
+) -> Result<RepoEntry, String> {
+    let git = require_git(&state)?;
+    let clone_git = git.clone();
+    let dest = tauri::async_runtime::spawn_blocking(move || {
+        git::clone_repo(&clone_git, &url, Path::new(parent.trim()), &name)
+    })
+    .await
+    .map_err(|err| err.to_string())??;
+    register_standalone_repo(&app, &state, &git, &dest)
+}
+
+fn register_standalone_repo(
+    app: &AppHandle,
+    state: &AppState,
+    git: &Path,
+    path: &Path,
+) -> Result<RepoEntry, String> {
+    let root = git::repo_root(git, path)?;
 
     let mut data = state.data.lock().map_err(|err| err.to_string())?;
     if path_already_added(&data, &root) {
@@ -603,7 +630,7 @@ pub fn add_standalone_repo(
         header_color: String::new(),
     };
     data.repos.push(entry.clone());
-    persist_data(&app, &data)?;
+    persist_data(app, &data)?;
     Ok(entry)
 }
 

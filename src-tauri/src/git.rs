@@ -424,6 +424,45 @@ pub fn repo_root(git: &Path, path: &Path) -> Result<String, String> {
     Ok(root.to_string())
 }
 
+pub fn clone_repo(git: &Path, url: &str, parent: &Path, name: &str) -> Result<PathBuf, String> {
+    let url = url.trim();
+    if url.is_empty() {
+        return Err("Enter a repository URL.".into());
+    }
+    if url.starts_with('-') || url.chars().any(char::is_control) {
+        return Err("Invalid repository URL.".into());
+    }
+    let name = name.trim();
+    if name.is_empty()
+        || name == "."
+        || name == ".."
+        || name.contains(['/', '\\'])
+        || name.chars().any(char::is_control)
+    {
+        return Err("Invalid folder name.".into());
+    }
+    if !parent.is_dir() {
+        return Err("The destination folder does not exist.".into());
+    }
+    let dest = parent.join(name);
+    if dest.exists() {
+        let empty_dir = fs::read_dir(&dest)
+            .map(|mut entries| entries.next().is_none())
+            .unwrap_or(false);
+        if !empty_dir {
+            return Err(format!("{} already exists.", dest.display()));
+        }
+    }
+    let dest_arg = dest
+        .to_str()
+        .ok_or_else(|| "Destination path is not valid UTF-8".to_string())?;
+    let output = run_git(git, parent, &["clone", "--", url, dest_arg])?;
+    if !output.success {
+        return Err(or_fallback(&combined_message(&output), "Clone failed."));
+    }
+    Ok(dest)
+}
+
 pub struct LiveStatus {
     pub branch: String,
     pub ahead: u32,
@@ -4629,6 +4668,38 @@ mod tests {
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(files.iter().any(|file| file.path == "README.md" && !file.staged));
         assert!(!files.iter().any(|file| file.staged));
+    }
+
+    #[test]
+    fn clones_into_named_folder() {
+        let source = init_repo();
+        let parent = temp_dir();
+        let url = source.to_str().unwrap();
+        let dest = clone_repo(&git_bin(), url, &parent, "copy").unwrap();
+        assert_eq!(dest, parent.join("copy"));
+        assert_eq!(fs::read_to_string(dest.join("README.md")).unwrap(), "hello\n");
+        assert_eq!(current_branch(&git_bin(), &dest).unwrap(), "develop");
+
+        let err = clone_repo(&git_bin(), url, &parent, "copy").unwrap_err();
+        assert!(err.contains("already exists"), "{err}");
+
+        fs::create_dir(parent.join("empty")).unwrap();
+        assert!(clone_repo(&git_bin(), url, &parent, "empty").is_ok());
+    }
+
+    #[test]
+    fn clone_rejects_bad_input() {
+        let parent = temp_dir();
+        let git = git_bin();
+        assert!(clone_repo(&git, "  ", &parent, "repo").is_err());
+        assert!(clone_repo(&git, "--upload-pack=touch /tmp/x", &parent, "repo").is_err());
+        for name in ["", ".", "..", "a/b", "a\\b"] {
+            assert!(clone_repo(&git, "https://example.com/r.git", &parent, name).is_err());
+        }
+        assert!(clone_repo(&git, "https://example.com/r.git", &parent.join("missing"), "repo").is_err());
+        let err = clone_repo(&git, parent.join("nope").to_str().unwrap(), &parent, "repo").unwrap_err();
+        assert!(!err.is_empty());
+        assert!(!parent.join("repo").exists());
     }
 
     #[test]
