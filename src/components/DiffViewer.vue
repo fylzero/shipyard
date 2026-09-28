@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import * as api from "../api";
-import { parseDiff, toSplitRows, type DiffKind } from "../diff";
+import { diffNotes, parseDiff, toSplitRows, type DiffKind } from "../diff";
 import { formatCommitDate } from "../graphLayout";
 import type { BlameLine, FileBlame } from "../types";
 
@@ -15,7 +15,9 @@ const props = defineProps<{
   oldPath?: string;
 }>();
 
-const lines = computed(() => parseDiff(props.raw));
+const parsed = computed(() => parseDiff(props.raw));
+const lines = computed(() => parsed.value.filter((line) => line.kind !== "meta"));
+const notes = computed(() => diffNotes(parsed.value));
 const splitRows = computed(() => toSplitRows(lines.value));
 
 const emptyBlame = (): FileBlame => ({ current: [], previous: [] });
@@ -235,62 +237,71 @@ onUnmounted(() => {
 <template>
   <div ref="rootEl">
     <div v-if="!raw" class="muted" style="padding: 0.85rem">No diff available.</div>
-    <div v-else-if="mode === 'inline'">
-      <div
-        v-for="(line, index) in lines"
-        :key="index"
-        class="diff-line"
-        :class="{
-          'diff-add': line.kind === 'add',
-          'diff-del': line.kind === 'del',
-          'diff-hunk': line.kind === 'hunk' || line.kind === 'meta',
-          'is-hovered': isHovered(`inline-${index}`),
-        }"
-        @mouseenter="showHover($event.currentTarget, `inline-${index}`, line.kind, line.kind === 'del' ? line.oldNo : line.newNo)"
-        @mouseleave="onRowLeave"
-      >
-        <span class="diff-gutter">{{ line.kind === "add" ? "" : line.oldNo ?? "" }}</span>
-        <span class="diff-gutter">{{ line.kind === "del" ? "" : line.newNo ?? "" }}</span>
-        <span class="diff-code">{{
-          line.kind === "add" ? `+${line.text}` : line.kind === "del" ? `-${line.text}` : line.text
-        }}</span>
-      </div>
+    <div v-if="raw && notes.length" class="diff-notes muted">
+      <div v-for="note in notes" :key="note">{{ note }}</div>
     </div>
-    <div v-else>
-      <div
-        v-for="(row, index) in splitRows"
-        :key="index"
-        class="diff-line side"
-        :class="{ 'diff-hunk': row.leftKind === 'hunk' || row.leftKind === 'meta' }"
-        @mouseleave="onRowLeave"
-      >
-        <span
-          class="diff-gutter"
-          :class="{ 'is-hovered': isHovered(`split-${index}-left`) }"
-          @mouseenter="showHover($event.currentTarget, `split-${index}-left`, row.leftKind, row.leftNo, 'previous')"
-        >{{ row.leftNo ?? "" }}</span>
-        <span
-          class="diff-code"
+    <div v-if="raw && mode === 'inline'">
+      <template v-for="(line, index) in lines" :key="index">
+        <template v-if="line.kind === 'hunk'">
+          <div v-if="index > 0" class="diff-hunk" @mouseenter="hideHover" />
+        </template>
+        <div
+          v-else
+          class="diff-line"
           :class="{
-            'diff-del': row.leftKind === 'del',
-            'is-hovered': isHovered(`split-${index}-left`),
+            'diff-add': line.kind === 'add',
+            'diff-del': line.kind === 'del',
+            'is-hovered': isHovered(`inline-${index}`),
           }"
-          @mouseenter="showHover($event.currentTarget, `split-${index}-left`, row.leftKind, row.leftNo, 'previous')"
-        >{{ row.leftText }}</span>
-        <span
-          class="diff-gutter"
-          :class="{ 'is-hovered': isHovered(`split-${index}-right`) }"
-          @mouseenter="showHover($event.currentTarget, `split-${index}-right`, row.rightKind, row.rightNo, 'current')"
-        >{{ row.rightNo ?? "" }}</span>
-        <span
-          class="diff-code"
-          :class="{
-            'diff-add': row.rightKind === 'add',
-            'is-hovered': isHovered(`split-${index}-right`),
-          }"
-          @mouseenter="showHover($event.currentTarget, `split-${index}-right`, row.rightKind, row.rightNo, 'current')"
-        >{{ row.rightText }}</span>
-      </div>
+          @mouseenter="showHover($event.currentTarget, `inline-${index}`, line.kind, line.kind === 'del' ? line.oldNo : line.newNo)"
+          @mouseleave="onRowLeave"
+        >
+          <span class="diff-gutter">{{ line.kind === "add" ? "" : line.oldNo ?? "" }}</span>
+          <span class="diff-gutter">{{ line.kind === "del" ? "" : line.newNo ?? "" }}</span>
+          <span class="diff-code">{{
+            line.kind === "add" ? `+${line.text}` : line.kind === "del" ? `-${line.text}` : line.text
+          }}</span>
+        </div>
+      </template>
+    </div>
+    <div v-else-if="raw">
+      <template v-for="(row, index) in splitRows" :key="index">
+        <template v-if="row.leftKind === 'hunk'">
+          <div v-if="index > 0" class="diff-hunk" @mouseenter="hideHover" />
+        </template>
+        <div
+          v-else
+          class="diff-line side"
+          @mouseleave="onRowLeave"
+        >
+          <span
+            class="diff-gutter"
+            :class="{ 'is-hovered': isHovered(`split-${index}-left`) }"
+            @mouseenter="showHover($event.currentTarget, `split-${index}-left`, row.leftKind, row.leftNo, 'previous')"
+          >{{ row.leftNo ?? "" }}</span>
+          <span
+            class="diff-code"
+            :class="{
+              'diff-del': row.leftKind === 'del',
+              'is-hovered': isHovered(`split-${index}-left`),
+            }"
+            @mouseenter="showHover($event.currentTarget, `split-${index}-left`, row.leftKind, row.leftNo, 'previous')"
+          >{{ row.leftText }}</span>
+          <span
+            class="diff-gutter"
+            :class="{ 'is-hovered': isHovered(`split-${index}-right`) }"
+            @mouseenter="showHover($event.currentTarget, `split-${index}-right`, row.rightKind, row.rightNo, 'current')"
+          >{{ row.rightNo ?? "" }}</span>
+          <span
+            class="diff-code"
+            :class="{
+              'diff-add': row.rightKind === 'add',
+              'is-hovered': isHovered(`split-${index}-right`),
+            }"
+            @mouseenter="showHover($event.currentTarget, `split-${index}-right`, row.rightKind, row.rightNo, 'current')"
+          >{{ row.rightText }}</span>
+        </div>
+      </template>
     </div>
     <Teleport to="body">
       <div

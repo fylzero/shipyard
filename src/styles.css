@@ -413,6 +413,27 @@ button.toast:hover .toast-action {
   appearance: none;
 }
 
+.clone-location {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.clone-location input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.clone-location button {
+  flex: 0 0 auto;
+}
+
+.clone-error {
+  max-height: 10rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .radio-list {
   display: flex;
   flex-direction: column;
@@ -1540,6 +1561,16 @@ button:has(.spinner) {
   opacity: 0.75;
 }
 
+.standalone-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
+  margin: 0;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
 .groups-list {
   display: flex;
   flex-direction: column;
@@ -1989,6 +2020,23 @@ body.reordering-repos,
 body.reordering-repos .repo-row,
 .group-body.reordering {
   cursor: grabbing;
+}
+
+.group-empty {
+  margin: 0;
+  padding: 0.55rem 0.85rem 0.65rem 2.4rem;
+  background: #0c0e12;
+}
+
+.link-button,
+button.link-button:hover:not(:disabled) {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .repo-row.flush {
@@ -4006,8 +4054,16 @@ svg.file-tree-twist.open {
 }
 
 .diff-hunk {
+  height: 0.5rem;
   background: #243044;
-  color: #9ec1ff;
+}
+
+.diff-notes {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.5rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85em;
 }
 
 .diff-line.is-hovered:not(.side) {

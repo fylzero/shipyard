@@ -20,9 +20,17 @@ export function parseDiff(raw: string): DiffLine[] {
   const lines: DiffLine[] = [];
   let oldNo = 0;
   let newNo = 0;
+  let inHeader = false;
 
   for (const line of raw.split(/\r?\n/)) {
+    if (line.startsWith("diff ")) {
+      inHeader = true;
+      lines.push({ kind: "meta", text: line });
+      continue;
+    }
+
     if (line.startsWith("@@")) {
+      inHeader = false;
       const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
       if (match) {
         oldNo = Number(match[1]);
@@ -32,15 +40,10 @@ export function parseDiff(raw: string): DiffLine[] {
       continue;
     }
 
-    if (
-      line.startsWith("diff ") ||
-      line.startsWith("index ") ||
-      line.startsWith("---") ||
-      line.startsWith("+++") ||
-      line.startsWith("new file") ||
-      line.startsWith("deleted file")
-    ) {
-      lines.push({ kind: "meta", text: line });
+    if (inHeader) {
+      if (line !== "") {
+        lines.push({ kind: "meta", text: line });
+      }
       continue;
     }
 
@@ -65,6 +68,44 @@ export function parseDiff(raw: string): DiffLine[] {
   }
 
   return lines;
+}
+
+export function diffNotes(lines: DiffLine[]): string[] {
+  const meta = lines.filter((line) => line.kind === "meta").map((line) => line.text);
+  const hasContent = lines.some((line) => line.kind !== "meta");
+  const value = (prefix: string) => meta.find((text) => text.startsWith(prefix))?.slice(prefix.length);
+  const notes: string[] = [];
+
+  const renameFrom = value("rename from ");
+  const renameTo = value("rename to ");
+  if (renameFrom && renameTo) {
+    notes.push(`Renamed from ${renameFrom} to ${renameTo}`);
+  }
+
+  const copyFrom = value("copy from ");
+  if (copyFrom) {
+    notes.push(`Copied from ${copyFrom}`);
+  }
+
+  const oldMode = value("old mode ");
+  const newMode = value("new mode ");
+  if (oldMode && newMode) {
+    notes.push(`File mode changed from ${oldMode} to ${newMode}`);
+  }
+
+  if (meta.some((text) => text.startsWith("Binary files ") || text === "GIT binary patch")) {
+    notes.push("Binary file changed");
+  } else if (!hasContent && value("new file mode ")) {
+    notes.push("Empty file added");
+  } else if (!hasContent && value("deleted file mode ")) {
+    notes.push("Empty file deleted");
+  }
+
+  if (!hasContent && meta.length > 0 && notes.length === 0) {
+    notes.push("No content changes");
+  }
+
+  return notes;
 }
 
 export function toSplitRows(lines: DiffLine[]): SplitRow[] {

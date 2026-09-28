@@ -6,10 +6,47 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: "1.6.2",
+    version: "1.8.2",
     date: "September 28, 2026",
     notes: [
       "Shipyard is now licensed under the Functional Source License (FSL-1.1-MIT). You can use, change, and share it freely, including at work, but not sell it as a competing product. Each release becomes MIT two years after it comes out.",
+    ],
+  },
+  {
+    version: "1.8.1",
+    date: "September 26, 2026",
+    notes: [
+      "Clone repository accepts SSH addresses like git@github.com:owner/repo.git as well as HTTPS URLs.",
+      "Cloning over SSH no longer fails the first time you clone from a host. Shipyard trusts the host and remembers it, but still refuses if a known host's key has changed.",
+      "If the host rejects your SSH key, the error explains how to fix it: load the key into your SSH agent with ssh-add and add it to your account on the host.",
+    ],
+  },
+  {
+    version: "1.8.0",
+    date: "September 26, 2026",
+    notes: [
+      "Repos can be dragged into, out of, and between groups. Drop a repo on another group's list or its header to move it there, or drag it to the top of the dashboard to take it out of its group.",
+      "Collapsed and empty groups accept drops too. When there are no ungrouped repos, a drop area appears at the top while you drag.",
+      "Repos can't be moved between groups while a fetch, pull, or checkout is running on either one. Reordering inside a group still works.",
+      "An empty group shows No repositories yet with an Add one link instead of just its header.",
+    ],
+  },
+  {
+    version: "1.7.0",
+    date: "September 26, 2026",
+    notes: [
+      "The dashboard has a Clone repository button next to Add repository. Paste a URL, pick where to put it, and Shipyard clones the repo and adds it to your list.",
+      "The folder name fills in from the URL, and the location starts next to the repo you added most recently, or your home folder. Both can be changed before cloning.",
+      "If the clone fails, git's error is shown in the dialog so you can fix the URL or folder and try again.",
+    ],
+  },
+  {
+    version: "1.6.2",
+    date: "September 25, 2026",
+    notes: [
+      "The diff viewer hides git's header lines like diff --git, index, and the @@ ranges. Chunks of a file are separated by a thin bar instead.",
+      "Renames, file mode changes, and binary files are shown as a short note above the diff, since those details used to live in the hidden header lines.",
+      "Deleted or added lines that start with -- or ++, like SQL comments, now show up correctly in the diff instead of being mistaken for header lines.",
     ],
   },
   {

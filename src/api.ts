@@ -71,6 +71,10 @@ export function addStandaloneRepo(path: string) {
   return invoke<RepoEntry>("add_standalone_repo", { path });
 }
 
+export function cloneStandaloneRepo(url: string, parent: string, name: string) {
+  return invoke<RepoEntry>("clone_standalone_repo", { url, parent, name });
+}
+
 export function updateStandaloneRepo(
   repoId: string,
   label?: string,
@@ -97,6 +101,10 @@ export function removeRepo(groupId: string, repoId: string) {
 
 export function reorderGroupRepos(groupId: string, repoIds: string[]) {
   return invoke<void>("reorder_group_repos", { groupId, repoIds });
+}
+
+export function moveRepo(repoId: string, fromGroupId: string, toGroupId: string, index: number) {
+  return invoke<void>("move_repo", { repoId, fromGroupId, toGroupId, index });
 }
 
 export function reorderGroups(groupIds: string[]) {

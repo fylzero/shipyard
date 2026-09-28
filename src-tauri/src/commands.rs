@@ -524,6 +524,45 @@ pub fn reorder_group_repos(
     persist_data(&app, &data)
 }
 
+fn repo_list_mut<'a>(data: &'a mut AppData, group_id: &str) -> Result<&'a mut Vec<RepoEntry>, String> {
+    if group_id == STANDALONE_GROUP_ID {
+        return Ok(&mut data.repos);
+    }
+    Ok(&mut find_group_mut(data, group_id)?.repos)
+}
+
+#[tauri::command]
+pub fn move_repo(
+    app: AppHandle,
+    state: State<AppState>,
+    repo_id: String,
+    from_group_id: String,
+    to_group_id: String,
+    index: usize,
+) -> Result<(), String> {
+    if from_group_id == to_group_id {
+        return Err("Repository is already in that list.".into());
+    }
+    let mut data = state.data.lock().map_err(|err| err.to_string())?;
+    let source = repo_list_mut(&mut data, &from_group_id)?;
+    let position = source
+        .iter()
+        .position(|repo| repo.id == repo_id)
+        .ok_or_else(|| "Repository not found".to_string())?;
+    let path = source[position].path.clone();
+    if repo_list_mut(&mut data, &to_group_id)?
+        .iter()
+        .any(|entry| entry.path == path)
+    {
+        return Err("That repository is already in this group.".into());
+    }
+    let repo = repo_list_mut(&mut data, &from_group_id)?.remove(position);
+    let target = repo_list_mut(&mut data, &to_group_id)?;
+    let index = index.min(target.len());
+    target.insert(index, repo);
+    persist_data(&app, &data)
+}
+
 #[tauri::command]
 pub fn reorder_groups(
     app: AppHandle,
@@ -589,7 +628,34 @@ pub fn add_standalone_repo(
     path: String,
 ) -> Result<RepoEntry, String> {
     let git = require_git(&state)?;
-    let root = git::repo_root(&git, Path::new(&path))?;
+    register_standalone_repo(&app, &state, &git, Path::new(&path))
+}
+
+#[tauri::command]
+pub async fn clone_standalone_repo(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    url: String,
+    parent: String,
+    name: String,
+) -> Result<RepoEntry, String> {
+    let git = require_git(&state)?;
+    let clone_git = git.clone();
+    let dest = tauri::async_runtime::spawn_blocking(move || {
+        git::clone_repo(&clone_git, &url, Path::new(parent.trim()), &name)
+    })
+    .await
+    .map_err(|err| err.to_string())??;
+    register_standalone_repo(&app, &state, &git, &dest)
+}
+
+fn register_standalone_repo(
+    app: &AppHandle,
+    state: &AppState,
+    git: &Path,
+    path: &Path,
+) -> Result<RepoEntry, String> {
+    let root = git::repo_root(git, path)?;
 
     let mut data = state.data.lock().map_err(|err| err.to_string())?;
     if path_already_added(&data, &root) {
@@ -603,7 +669,7 @@ pub fn add_standalone_repo(
         header_color: String::new(),
     };
     data.repos.push(entry.clone());
-    persist_data(&app, &data)?;
+    persist_data(app, &data)?;
     Ok(entry)
 }
 

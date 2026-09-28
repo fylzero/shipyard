@@ -782,7 +782,14 @@ export function useApp() {
   }
 
   async function addStandaloneRepo(path: string) {
-    const repo = await api.addStandaloneRepo(path);
+    return trackStandaloneRepo(await api.addStandaloneRepo(path));
+  }
+
+  async function cloneStandaloneRepo(url: string, parent: string, name: string) {
+    return trackStandaloneRepo(await api.cloneStandaloneRepo(url, parent, name));
+  }
+
+  async function trackStandaloneRepo(repo: RepoEntry) {
     standaloneRepos.value = [...standaloneRepos.value, repo];
     applyStatus(await api.refreshRepo(STANDALONE_GROUP_ID, repo.id, false));
     return repo;
@@ -876,6 +883,41 @@ export function useApp() {
       await api.reorderGroupRepos(groupId, repoIds);
     } catch (err) {
       patchGroup(groupId, { repos: previous });
+      throw err;
+    }
+  }
+
+  function repoListFor(groupId: string) {
+    if (groupId === STANDALONE_GROUP_ID) {
+      return standaloneRepos.value;
+    }
+    return groups.value.find((item) => item.id === groupId)?.repos ?? null;
+  }
+
+  function setRepoList(groupId: string, repos: RepoEntry[]) {
+    if (groupId === STANDALONE_GROUP_ID) {
+      standaloneRepos.value = repos;
+    } else {
+      patchGroup(groupId, { repos });
+    }
+  }
+
+  async function moveRepo(repoId: string, fromGroupId: string, toGroupId: string, index: number) {
+    const source = repoListFor(fromGroupId);
+    const target = repoListFor(toGroupId);
+    const repo = source?.find((item) => item.id === repoId);
+    if (!source || !target || !repo || fromGroupId === toGroupId) {
+      return;
+    }
+    const nextTarget = [...target];
+    nextTarget.splice(Math.min(index, nextTarget.length), 0, repo);
+    setRepoList(fromGroupId, source.filter((item) => item.id !== repoId));
+    setRepoList(toGroupId, nextTarget);
+    try {
+      await api.moveRepo(repoId, fromGroupId, toGroupId, index);
+    } catch (err) {
+      setRepoList(fromGroupId, source);
+      setRepoList(toGroupId, target);
       throw err;
     }
   }
@@ -1414,12 +1456,14 @@ export function useApp() {
     saveSettings,
     addRepo,
     addStandaloneRepo,
+    cloneStandaloneRepo,
     updateStandaloneRepo,
     removeStandaloneRepo,
     removeRepo,
     reorderGroups,
     reorderStandaloneRepos,
     reorderGroupRepos,
+    moveRepo,
     repoDisplayName,
     runAction,
     clearResults,
