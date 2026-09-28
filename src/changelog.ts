@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.6.2",
+    date: "September 28, 2026",
+    notes: [
+      "Shipyard is now licensed under the Functional Source License (FSL-1.1-MIT). You can use, change, and share it freely, including at work, but not sell it as a competing product. Each release becomes MIT two years after it comes out.",
+    ],
+  },
+  {
     version: "1.6.1",
     date: "September 24, 2026",
     notes: [
