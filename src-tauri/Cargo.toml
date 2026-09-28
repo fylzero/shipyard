@@ -2,7 +2,8 @@
 name = "shipyard"
 version = "1.6.1"
 description = "A local-first Git client"
-authors = ["you"]
+authors = ["RazorKode LLC"]
+license = "FSL-1.1-MIT"
 edition = "2021"
 
 [lib]
