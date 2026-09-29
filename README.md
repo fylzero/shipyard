@@ -15,7 +15,7 @@
 
 ## First-time setup
 
-Shipyard is a [Tauri](https://v2.tauri.app/) app: a Vue frontend plus a Rust native shell. You need **Node**, **Rust**, **Xcode Command Line Tools**, and **Git** before `npm run tauri dev` will work.
+Shipyard is a [Tauri](https://v2.tauri.app/) app: a Vue frontend plus a Rust native shell. You need **Bun**, **Rust**, **Xcode Command Line Tools**, and **Git** before `bun run tauri dev` will work.
 
 ### 1. Clone the repo
 
@@ -40,14 +40,13 @@ xcode-select -p
 
 You should see `/Library/Developer/CommandLineTools` or an Xcode path.
 
-### 3. Node.js 20+
+### 3. Bun
 
-Install from [nodejs.org](https://nodejs.org/) or Homebrew:
+Install with the official script from [bun.sh](https://bun.sh/):
 
 ```bash
-brew install node
-node -v   # v20 or newer
-npm -v
+curl -fsSL https://bun.sh/install | bash
+bun --version
 ```
 
 ### 4. Rust (this is the usual missing piece)
@@ -71,7 +70,7 @@ cargo --version
 rustc --version
 ```
 
-You do not need to `source` anything for `npm run tauri dev`. That script already prepends `$HOME/.cargo/bin` to `PATH`.
+You do not need to `source` anything for `bun run tauri dev`. That script already prepends `$HOME/.cargo/bin` to `PATH`.
 
 ### 5. Git
 
@@ -84,8 +83,8 @@ Homebrew Git and `/usr/bin/git` are both fine. Shipyard shells out to whatever `
 ### 6. Install JS dependencies and start the app
 
 ```bash
-npm install
-npm run tauri dev
+bun install
+bun run tauri dev
 ```
 
 That command:
@@ -99,7 +98,7 @@ The **first** `tauri dev` (or `tauri build`) downloads crates and compiles from 
 ## Export a native Mac app
 
 ```bash
-npm run tauri build
+bun run tauri build
 ```
 
 When the build finishes:
@@ -125,7 +124,7 @@ Rust is not installed. Run step 4, open a new terminal, and confirm `command -v 
 Xcode Command Line Tools are missing or stale. Run `xcode-select --install` (or `sudo xcode-select --reset` after installing Xcode).
 
 **Vite starts but no native window**  
-Leave the first Rust compile running. If it fails, the error is in the same terminal as `npm run tauri dev`.
+Leave the first Rust compile running. If it fails, the error is in the same terminal as `bun run tauri dev`.
 
 **Frontend only (browser, no native APIs)**  
-`npm run dev` serves the Vue app at `http://localhost:1420`. Git, dialogs, and other Tauri APIs need `npm run tauri dev`.
+`bun run dev` serves the Vue app at `http://localhost:1420`. Git, dialogs, and other Tauri APIs need `bun run tauri dev`.

@@ -5,7 +5,7 @@ set -euo pipefail
 # APPLE_SIGNING_IDENTITY overrides the local ad-hoc identity in tauri.conf.json.
 # Tauri imports the certificate, signs, notarizes with notarytool, and staples
 # the app before creating the DMG and signed updater archive.
-npm run tauri -- "$@"
+bun run tauri "$@"
 
 bundle="src-tauri/target/aarch64-apple-darwin/release/bundle"
 

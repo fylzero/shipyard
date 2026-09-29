@@ -2,7 +2,7 @@
   "name": "shipyard",
   "private": true,
   "version": "1.8.2",
-  "license": "FSL-1.1-MIT",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
