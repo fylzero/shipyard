@@ -1513,22 +1513,16 @@ button.tab-tool.update:hover:not(:disabled) {
   stroke-linejoin: round;
 }
 
-.standalone-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
 .groups-toolbar .new-group {
   margin-bottom: 0;
 }
 
+.group.drop-target {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .groups-display .groups-list,
-.groups-display .standalone-list,
 .groups-display .muted {
   width: 100%;
 }
@@ -1559,16 +1553,6 @@ button:has(.spinner) {
 
 .repo-row.refreshing {
   opacity: 0.75;
-}
-
-.standalone-drop {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.9rem;
-  margin: 0;
-  border: 1px dashed var(--border);
-  border-radius: 6px;
 }
 
 .groups-list {
@@ -2094,11 +2078,6 @@ button.link-button:hover:not(:disabled) {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.standalone-list.reordering,
-.standalone-list.reordering .repo-row {
-  cursor: grabbing;
 }
 
 .repo-row:hover {

@@ -1,6 +1,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import * as api from "../api";
+import { dashboardIds as orderDashboard } from "../dashboard";
 import type {
   AppData,
   DiffMode,
@@ -31,6 +32,14 @@ import {
 
 const groups = ref<RepoGroup[]>([]);
 const standaloneRepos = ref<RepoEntry[]>([]);
+const dashboardOrder = ref<string[]>([]);
+const dashboardIds = computed(() =>
+  orderDashboard(
+    dashboardOrder.value,
+    standaloneRepos.value.map((repo) => repo.id),
+    groups.value.map((group) => group.id),
+  ),
+);
 const statuses = ref<Record<string, RepoStatus>>({});
 const results = ref<Record<string, RepoActionResult[]>>({});
 const busy = ref<Record<string, string>>({});
@@ -109,6 +118,7 @@ export function useApp() {
   function applyState(data: AppData) {
     groups.value = data.groups;
     standaloneRepos.value = data.repos ?? [];
+    dashboardOrder.value = data.dashboardOrder ?? [];
     refreshIntervalSeconds.value = data.refreshIntervalSeconds ?? 300;
     refreshActiveHours.value = normalizeRefreshActiveHours(data.refreshActiveHours);
     filesPaneWidth.value = clampFilesPaneWidth(data.filesPaneWidth ?? 320);
@@ -711,6 +721,7 @@ export function useApp() {
   async function createGroup(name: string) {
     const group = await api.createGroup(name);
     groups.value = [group, ...groups.value];
+    dashboardOrder.value = [group.id, ...dashboardIds.value];
     return group;
   }
 
@@ -835,35 +846,44 @@ export function useApp() {
     statuses.value = next;
   }
 
-  async function reorderGroups(groupIds: string[]) {
-    const byId = new Map(groups.value.map((group) => [group.id, group]));
-    if (groupIds.length !== groups.value.length || groupIds.some((id) => !byId.has(id))) {
-      throw new Error("Group list does not match saved groups.");
+  /** Grouped repositories listed in `ids` move out of their group. */
+  async function reorderDashboard(ids: string[]) {
+    const previous = {
+      groups: groups.value,
+      standalone: standaloneRepos.value,
+      order: dashboardOrder.value,
+    };
+    const groupIds = new Set(groups.value.map((group) => group.id));
+    const standalone = new Map(standaloneRepos.value.map((repo) => [repo.id, repo]));
+    let nextGroups = groups.value;
+    for (const id of ids) {
+      if (groupIds.has(id) || standalone.has(id)) {
+        continue;
+      }
+      const owner = groups.value.find((group) => group.repos.some((repo) => repo.id === id));
+      const repo = owner?.repos.find((item) => item.id === id);
+      if (!owner || !repo) {
+        throw new Error("Repository not found.");
+      }
+      standalone.set(id, repo);
+      nextGroups = nextGroups.map((group) =>
+        group.id === owner.id
+          ? { ...group, repos: group.repos.filter((item) => item.id !== id) }
+          : group,
+      );
     }
-    const previous = groups.value;
-    groups.value = groupIds.map((id) => byId.get(id)!);
+    const position = new Map(ids.map((id, index) => [id, index]));
+    const byPosition = (left: { id: string }, right: { id: string }) =>
+      (position.get(left.id) ?? 0) - (position.get(right.id) ?? 0);
+    groups.value = [...nextGroups].sort(byPosition);
+    standaloneRepos.value = [...standalone.values()].sort(byPosition);
+    dashboardOrder.value = ids;
     try {
-      await api.reorderGroups(groupIds);
+      await api.reorderDashboard(ids);
     } catch (err) {
-      groups.value = previous;
-      throw err;
-    }
-  }
-
-  async function reorderStandaloneRepos(repoIds: string[]) {
-    const byId = new Map(standaloneRepos.value.map((repo) => [repo.id, repo]));
-    if (
-      repoIds.length !== standaloneRepos.value.length ||
-      repoIds.some((id) => !byId.has(id))
-    ) {
-      throw new Error("Repository list does not match saved repositories.");
-    }
-    const previous = standaloneRepos.value;
-    standaloneRepos.value = repoIds.map((id) => byId.get(id)!);
-    try {
-      await api.reorderStandaloneRepos(repoIds);
-    } catch (err) {
-      standaloneRepos.value = previous;
+      groups.value = previous.groups;
+      standaloneRepos.value = previous.standalone;
+      dashboardOrder.value = previous.order;
       throw err;
     }
   }
@@ -1374,6 +1394,8 @@ export function useApp() {
   return {
     groups,
     standaloneRepos,
+    dashboardOrder,
+    dashboardIds,
     statuses: statusById,
     results,
     busy,
@@ -1460,8 +1482,7 @@ export function useApp() {
     updateStandaloneRepo,
     removeStandaloneRepo,
     removeRepo,
-    reorderGroups,
-    reorderStandaloneRepos,
+    reorderDashboard,
     reorderGroupRepos,
     moveRepo,
     repoDisplayName,

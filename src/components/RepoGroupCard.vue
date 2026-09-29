@@ -27,6 +27,7 @@ const props = defineProps<{
   repos?: RepoEntry[];
   reposSortable?: boolean;
   draggingRepoId?: string | null;
+  dropTarget?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -438,9 +439,8 @@ function onHeaderClick(event: MouseEvent) {
 <template>
   <section
     class="group"
-    :class="{ dragging, sortable }"
+    :class="{ dragging, sortable, 'drop-target': dropTarget }"
     :data-group-id="draft ? undefined : group.id"
-    :data-repo-list="draft ? undefined : group.id"
   >
     <div
       class="group-header"

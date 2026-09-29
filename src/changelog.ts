@@ -6,6 +6,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.9.0",
+    date: "September 29, 2026",
+    notes: [
+      "Groups and ungrouped repos now share one list on the dashboard, so you can drag them into any order, like a repo between two groups.",
+      "To take a repo out of a group, drop it in the gap between entries or on the top half of a group's header. Dropping it lower on a group puts it inside. The separate drop area at the top is gone.",
+      "Sort A–Z on the dashboard sorts groups and ungrouped repos together by name.",
+      "New groups appear at the top of the dashboard.",
+    ],
+  },
+  {
     version: "1.8.3",
     date: "September 29, 2026",
     notes: [

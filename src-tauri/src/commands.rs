@@ -138,6 +138,7 @@ pub fn create_group(
 
     let mut data = state.data.lock().map_err(|err| err.to_string())?;
     data.groups.insert(0, group.clone());
+    data.dashboard_order.insert(0, group.id.clone());
     persist_data(&app, &data)?;
     Ok(group)
 }
@@ -563,62 +564,63 @@ pub fn move_repo(
     persist_data(&app, &data)
 }
 
-#[tauri::command]
-pub fn reorder_groups(
-    app: AppHandle,
-    state: State<AppState>,
-    group_ids: Vec<String>,
-) -> Result<(), String> {
-    let mut data = state.data.lock().map_err(|err| err.to_string())?;
-    if group_ids.len() != data.groups.len() {
-        return Err("Group list does not match saved groups.".into());
+fn take_group_repo(data: &mut AppData, repo_id: &str) -> Option<RepoEntry> {
+    data.groups.iter_mut().find_map(|group| {
+        let index = group.repos.iter().position(|repo| repo.id == repo_id)?;
+        Some(group.repos.remove(index))
+    })
+}
+
+/**
+ * Applies a dashboard order of group ids and ungrouped repository ids. A
+ * grouped repository listed here is moved out of its group.
+ */
+fn arrange_dashboard(data: &mut AppData, ids: Vec<String>) -> Result<(), String> {
+    for id in &ids {
+        let top_level = data.groups.iter().any(|group| &group.id == id)
+            || data.repos.iter().any(|repo| &repo.id == id);
+        if top_level {
+            continue;
+        }
+        let repo = take_group_repo(data, id).ok_or_else(|| "Repository not found".to_string())?;
+        if data.repos.iter().any(|entry| entry.path == repo.path) {
+            return Err("That repository is already added.".into());
+        }
+        data.repos.push(repo);
     }
-    let mut by_id: std::collections::HashMap<_, _> = data
-        .groups
-        .drain(..)
-        .map(|group| (group.id.clone(), group))
+    let expected = data.dashboard_ids();
+    let unique: std::collections::HashSet<&String> = ids.iter().collect();
+    if unique.len() != ids.len()
+        || ids.len() != expected.len()
+        || !expected.iter().all(|id| unique.contains(id))
+    {
+        return Err("Dashboard list does not match saved groups and repositories.".into());
+    }
+    let position: std::collections::HashMap<&str, usize> = ids
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (id.as_str(), index))
         .collect();
-    let mut next = Vec::with_capacity(group_ids.len());
-    for id in group_ids {
-        let group = by_id
-            .remove(&id)
-            .ok_or_else(|| "Group not found".to_string())?;
-        next.push(group);
-    }
-    if !by_id.is_empty() {
-        return Err("Group list does not match saved groups.".into());
-    }
-    data.groups = next;
-    persist_data(&app, &data)
+    data.groups
+        .sort_by_key(|group| position.get(group.id.as_str()).copied());
+    data.repos
+        .sort_by_key(|repo| position.get(repo.id.as_str()).copied());
+    data.dashboard_order = ids;
+    Ok(())
 }
 
 #[tauri::command]
-pub fn reorder_standalone_repos(
+pub fn reorder_dashboard(
     app: AppHandle,
     state: State<AppState>,
-    repo_ids: Vec<String>,
+    ids: Vec<String>,
 ) -> Result<(), String> {
     let mut data = state.data.lock().map_err(|err| err.to_string())?;
-    if repo_ids.len() != data.repos.len() {
-        return Err("Repository list does not match saved repositories.".into());
-    }
-    let mut by_id: std::collections::HashMap<_, _> = data
-        .repos
-        .drain(..)
-        .map(|repo| (repo.id.clone(), repo))
-        .collect();
-    let mut next = Vec::with_capacity(repo_ids.len());
-    for id in repo_ids {
-        let repo = by_id
-            .remove(&id)
-            .ok_or_else(|| "Repository not found".to_string())?;
-        next.push(repo);
-    }
-    if !by_id.is_empty() {
-        return Err("Repository list does not match saved repositories.".into());
-    }
-    data.repos = next;
-    persist_data(&app, &data)
+    let mut next = data.clone();
+    arrange_dashboard(&mut next, ids)?;
+    persist_data(&app, &next)?;
+    *data = next;
+    Ok(())
 }
 
 #[tauri::command]
@@ -1801,5 +1803,64 @@ fn fallback_message(message: &str, ok: bool, success_fallback: &str) -> String {
         success_fallback.to_string()
     } else {
         "Git command failed".into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn repo(id: &str, path: &str) -> RepoEntry {
+        RepoEntry {
+            id: id.into(),
+            path: path.into(),
+            label: String::new(),
+            header_color: String::new(),
+        }
+    }
+
+    fn group(id: &str, repos: Vec<RepoEntry>) -> RepoGroup {
+        RepoGroup {
+            id: id.into(),
+            name: id.into(),
+            expanded: true,
+            pull_from_branch: "develop".into(),
+            checkout_fallbacks: vec!["develop".into()],
+            header_color: "#16323c".into(),
+            repos,
+        }
+    }
+
+    fn ids(items: &[&str]) -> Vec<String> {
+        items.iter().map(|id| id.to_string()).collect()
+    }
+
+    #[test]
+    fn arranges_groups_and_repos_together() {
+        let mut data = AppData::default();
+        data.repos.push(repo("r1", "/tmp/one"));
+        data.groups.push(group("g1", Vec::new()));
+        data.groups.push(group("g2", vec![repo("r2", "/tmp/two")]));
+        assert_eq!(data.dashboard_ids(), ["r1", "g1", "g2"]);
+
+        arrange_dashboard(&mut data, ids(&["g2", "r2", "r1", "g1"])).unwrap();
+        assert_eq!(data.dashboard_ids(), ["g2", "r2", "r1", "g1"]);
+        assert_eq!(data.groups[0].id, "g2");
+        assert!(data.groups[0].repos.is_empty());
+        assert_eq!(
+            data.repos.iter().map(|repo| repo.id.as_str()).collect::<Vec<_>>(),
+            ["r2", "r1"]
+        );
+
+        assert!(arrange_dashboard(&mut data, ids(&["g2", "r1", "g1"])).is_err());
+        assert!(arrange_dashboard(&mut data, ids(&["g2", "r2", "r2", "r1", "g1"])).is_err());
+    }
+
+    #[test]
+    fn refuses_to_ungroup_a_repo_that_is_already_standalone() {
+        let mut data = AppData::default();
+        data.repos.push(repo("r1", "/tmp/one"));
+        data.groups.push(group("g1", vec![repo("r2", "/tmp/one")]));
+        assert!(arrange_dashboard(&mut data, ids(&["r1", "r2", "g1"])).is_err());
     }
 }

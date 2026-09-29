@@ -195,6 +195,9 @@ pub struct AppData {
     pub groups: Vec<RepoGroup>,
     #[serde(default)]
     pub repos: Vec<RepoEntry>,
+    /// Group ids and ungrouped repository ids, in dashboard order.
+    #[serde(default)]
+    pub dashboard_order: Vec<String>,
     #[serde(default = "default_refresh_interval")]
     pub refresh_interval_seconds: u64,
     #[serde(default = "default_files_pane_width")]
@@ -224,6 +227,7 @@ impl Default for AppData {
         Self {
             groups: Vec::new(),
             repos: Vec::new(),
+            dashboard_order: Vec::new(),
             refresh_interval_seconds: default_refresh_interval(),
             files_pane_width: default_files_pane_width(),
             terminal_pane_height: default_terminal_pane_height(),
@@ -236,6 +240,29 @@ impl Default for AppData {
             refresh_active_hours: RefreshActiveHours::default(),
             window: None,
         }
+    }
+}
+
+impl AppData {
+    /**
+     * The saved dashboard order without stale ids. Anything missing from it
+     * follows, ungrouped repositories first, matching the layout before
+     * groups and repositories could be interleaved.
+     */
+    pub fn dashboard_ids(&self) -> Vec<String> {
+        let known: Vec<&str> = self
+            .repos
+            .iter()
+            .map(|repo| repo.id.as_str())
+            .chain(self.groups.iter().map(|group| group.id.as_str()))
+            .collect();
+        let mut ids: Vec<String> = Vec::with_capacity(known.len());
+        for id in self.dashboard_order.iter().map(String::as_str).chain(known.iter().copied()) {
+            if known.contains(&id) && !ids.iter().any(|item| item == id) {
+                ids.push(id.to_string());
+            }
+        }
+        ids
     }
 }
 
@@ -275,6 +302,7 @@ mod tests {
             refresh_active_hours: RefreshActiveHours::default(),
             window: None,
             repos: Vec::new(),
+            dashboard_order: Vec::new(),
             groups: vec![RepoGroup {
                 id: "g1".into(),
                 name: "Work".into(),

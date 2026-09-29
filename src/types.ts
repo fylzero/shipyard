@@ -53,6 +53,7 @@ export const DEFAULT_WINDOW_HEIGHT = 800;
 export interface AppData {
   groups: RepoGroup[];
   repos?: RepoEntry[];
+  dashboardOrder?: string[];
   refreshIntervalSeconds?: number;
   filesPaneWidth?: number;
   terminalPaneHeight?: number;

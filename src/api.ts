@@ -107,12 +107,8 @@ export function moveRepo(repoId: string, fromGroupId: string, toGroupId: string,
   return invoke<void>("move_repo", { repoId, fromGroupId, toGroupId, index });
 }
 
-export function reorderGroups(groupIds: string[]) {
-  return invoke<void>("reorder_groups", { groupIds });
-}
-
-export function reorderStandaloneRepos(repoIds: string[]) {
-  return invoke<void>("reorder_standalone_repos", { repoIds });
+export function reorderDashboard(ids: string[]) {
+  return invoke<void>("reorder_dashboard", { ids });
 }
 
 export function updateAppSettings(refreshIntervalSeconds: number) {

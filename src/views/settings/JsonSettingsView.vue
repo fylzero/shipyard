@@ -14,6 +14,7 @@ import type { AppData } from "../../types";
 const {
   groups,
   standaloneRepos,
+  dashboardOrder,
   refreshIntervalSeconds,
   refreshActiveHours,
   diffMode,
@@ -194,6 +195,7 @@ watch(
   [
     groups,
     standaloneRepos,
+    dashboardOrder,
     refreshIntervalSeconds,
     refreshActiveHours,
     diffMode,
