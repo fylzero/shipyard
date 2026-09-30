@@ -3250,6 +3250,14 @@ input[type="text"].branch-search-query {
   white-space: nowrap;
 }
 
+.stash-row {
+  cursor: pointer;
+}
+
+.stash-row:hover:not(.selected) {
+  background: var(--bg-hover);
+}
+
 .stash-row-date,
 .tag-row-hash {
   flex-shrink: 0;

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { CommitFile, CommitNode } from "../types";
-import { formatCommitDate } from "../graphLayout";
+import type { CommitFile } from "../types";
 import FileStatusIcon from "./FileStatusIcon.vue";
 import PathLabel from "./PathLabel.vue";
 
 defineProps<{
-  commit: CommitNode;
+  title: string;
+  meta: string;
   files: CommitFile[];
   selectedPath: string;
   loading?: boolean;
@@ -27,12 +27,10 @@ function fileTitle(file: CommitFile) {
       <div class="pane-header commit-files-header">
         <div class="commit-files-title">
           <div class="file-heading">
-            <strong :title="commit.subject">{{ commit.subject }}</strong>
+            <strong :title="title">{{ title }}</strong>
             <span class="file-count-badge">{{ files.length }}</span>
           </div>
-          <p class="commit-files-meta muted tiny">
-            {{ commit.hash.slice(0, 7) }} · {{ commit.author }} · {{ formatCommitDate(commit.date) }}
-          </p>
+          <p class="commit-files-meta muted tiny">{{ meta }}</p>
         </div>
         <button class="ghost tiny" type="button" @click="emit('close')">Close</button>
       </div>

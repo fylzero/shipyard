@@ -39,6 +39,7 @@ import type {
   WorkingTreeFile,
 } from "../types";
 import { STANDALONE_GROUP_ID } from "../types";
+import { formatCommitDate } from "../graphLayout";
 import {
   abortLabel,
   absoluteFilePath,
@@ -109,9 +110,30 @@ const overview = ref<BranchOverview | null>(null);
 let overviewGeneration = 0;
 const selectedFile = ref<WorkingTreeFile | null>(null);
 const selectedCommit = ref<CommitNode | null>(null);
+const selectedStash = ref<StashEntry | null>(null);
 const selectedCommitFile = ref<CommitFile | null>(null);
 const commitFiles = ref<CommitFile[]>([]);
 const commitFilesLoading = ref(false);
+let commitFilesGeneration = 0;
+const commitDetail = computed(() => {
+  const stash = selectedStash.value;
+  if (stash) {
+    return {
+      title: stash.message,
+      meta: `${stashRef(stash.index)} · ${formatCommitDate(stash.date)}`,
+      label: stashRef(stash.index),
+    };
+  }
+  const commit = selectedCommit.value;
+  if (commit) {
+    return {
+      title: commit.subject,
+      meta: `${commit.hash.slice(0, 7)} · ${commit.author} · ${formatCommitDate(commit.date)}`,
+      label: commit.hash.slice(0, 7),
+    };
+  }
+  return null;
+});
 const historyOpen = ref(false);
 const repoFiles = ref<RepoFile[]>([]);
 const repoFilesLoading = ref(false);
@@ -145,7 +167,7 @@ const blameRev = computed(() => {
   if (selectedHistoryCommit.value) {
     return selectedHistoryCommit.value.hash;
   }
-  return selectedCommit.value?.hash ?? "";
+  return selectedStash.value?.hash ?? selectedCommit.value?.hash ?? "";
 });
 const blameStaged = computed(() => selectedFile.value?.staged ?? false);
 const loading = ref(false);
@@ -639,6 +661,14 @@ async function loadRepo(options?: { overview?: boolean; graph?: boolean; silent?
       }
     });
     stashes.value = nextStashes;
+    if (selectedStash.value) {
+      const nextStash = nextStashes.find((stash) => stash.hash === selectedStash.value?.hash);
+      if (nextStash) {
+        selectedStash.value = nextStash;
+      } else {
+        closeCommitDetail();
+      }
+    }
     tags.value = nextTags;
     if (wantOverview) {
       const needsClassify = nextOverview?.branches.some((branch) => branch.pending) ?? false;
@@ -653,7 +683,7 @@ async function loadRepo(options?: { overview?: boolean; graph?: boolean; silent?
         closeCommitDetail();
       } else {
         selectedCommit.value = nextCommit;
-        await refreshCommitFiles(nextCommit);
+        await refreshCommitFiles();
       }
     }
   } catch (err) {
@@ -680,22 +710,33 @@ function closeDiff() {
 
 function closeCommitDetail() {
   selectedCommit.value = null;
+  selectedStash.value = null;
   selectedCommitFile.value = null;
   commitFiles.value = [];
   commitFilesLoading.value = false;
+  commitFilesGeneration += 1;
   if (!selectedFile.value) {
     diff.value = "";
   }
 }
 
-async function refreshCommitFiles(commit: CommitNode) {
+async function refreshCommitFiles() {
   const match = current.value;
-  if (!match) {
+  const stash = selectedStash.value;
+  const hash = stash?.hash ?? selectedCommit.value?.hash;
+  if (!match || !hash) {
     return;
   }
+  const generation = ++commitFilesGeneration;
   commitFilesLoading.value = true;
   try {
-    commitFiles.value = await api.commitFiles(match.repo.path, commit.hash);
+    const next = stash
+      ? await api.stashChanges(match.repo.path, hash)
+      : await api.commitFiles(match.repo.path, hash);
+    if (generation !== commitFilesGeneration) {
+      return;
+    }
+    commitFiles.value = next;
     if (
       selectedCommitFile.value &&
       !commitFiles.value.some((file) => file.path === selectedCommitFile.value?.path)
@@ -706,10 +747,15 @@ async function refreshCommitFiles(commit: CommitNode) {
       }
     }
   } catch (err) {
+    if (generation !== commitFilesGeneration) {
+      return;
+    }
     message.value = String(err);
     commitFiles.value = [];
   } finally {
-    commitFilesLoading.value = false;
+    if (generation === commitFilesGeneration) {
+      commitFilesLoading.value = false;
+    }
   }
 }
 
@@ -723,21 +769,43 @@ async function selectCommit(commit: CommitNode) {
     return;
   }
   selectedFile.value = null;
+  selectedStash.value = null;
   selectedCommit.value = commit;
   selectedCommitFile.value = null;
   diff.value = "";
   openChangesPane();
-  await refreshCommitFiles(commit);
+  await refreshCommitFiles();
   const first = commitFiles.value[0];
   if (first) {
     await selectCommitFile(first);
   }
 }
 
+async function selectStash(stash: StashEntry) {
+  if (!current.value) {
+    return;
+  }
+  if (selectedStash.value?.hash === stash.hash) {
+    closeCommitDetail();
+    return;
+  }
+  closeCommitDetail();
+  selectedFile.value = null;
+  selectedStash.value = stash;
+  diff.value = "";
+  openChangesPane();
+  await refreshCommitFiles();
+  const first = commitFiles.value[0];
+  if (first && selectedStash.value?.hash === stash.hash) {
+    await selectCommitFile(first);
+  }
+}
+
 async function selectCommitFile(file: CommitFile) {
   const match = current.value;
-  const commit = selectedCommit.value;
-  if (!match || !commit) {
+  const stash = selectedStash.value;
+  const hash = stash?.hash ?? selectedCommit.value?.hash;
+  if (!match || !hash) {
     return;
   }
   if (selectedCommitFile.value?.path === file.path) {
@@ -747,7 +815,9 @@ async function selectCommitFile(file: CommitFile) {
   selectedFile.value = null;
   selectedCommitFile.value = file;
   try {
-    diff.value = await api.commitFileDiff(match.repo.path, commit.hash, file.path);
+    diff.value = stash
+      ? await api.stashFileDiff(match.repo.path, hash, file.path, file.oldPath)
+      : await api.commitFileDiff(match.repo.path, hash, file.path);
   } catch (err) {
     diff.value = String(err);
   }
@@ -1479,6 +1549,9 @@ function removeOverviewBranches(names: string[]) {
 async function selectMainTab(tab: RepoViewTab) {
   if (mainTab.value === tab) {
     return;
+  }
+  if (selectedStash.value) {
+    closeCommitDetail();
   }
   mainTab.value = tab;
   if (tab === "terminal") {
@@ -2923,8 +2996,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         <StashList
           v-else-if="stashView"
           :stashes="stashes"
+          :selected-hash="selectedStash?.hash ?? ''"
           :busy="actionBusy"
           :can-stash="files.length > 0"
+          @select="selectStash"
           @apply="applyStash"
           @pop="popStash"
           @drop="dropStash"
@@ -2956,7 +3031,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
                   ? "Staged"
                   : "Unstaged"
               : selectedCommitFile
-                ? `${selectedCommitFile.status} · ${selectedCommit?.hash.slice(0, 7)}`
+                ? `${selectedCommitFile.status} · ${commitDetail?.label ?? ""}`
                 : selectedHistoryCommit
                   ? selectedHistoryCommit.status
                     ? `${selectedHistoryCommit.status} · ${selectedHistoryCommit.hash.slice(0, 7)}`
@@ -3052,8 +3127,9 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         />
       </div>
       <CommitFiles
-        v-else-if="selectedCommit"
-        :commit="selectedCommit"
+        v-else-if="commitDetail"
+        :title="commitDetail.title"
+        :meta="commitDetail.meta"
         :files="commitFiles"
         :selected-path="selectedCommitFile?.path ?? ''"
         :loading="commitFilesLoading"

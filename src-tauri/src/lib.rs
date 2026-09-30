@@ -139,6 +139,8 @@ pub fn run() {
             commands::commit_file_diff,
             commands::file_blame,
             commands::stash_list,
+            commands::stash_changes,
+            commands::stash_file_diff,
             commands::stash_push,
             commands::stash_files,
             commands::stash_apply,

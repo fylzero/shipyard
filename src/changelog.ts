@@ -13,6 +13,7 @@ export const CHANGELOG: ChangelogRelease[] = [
       "Right-click a selection to stage or unstage, ignore, stash, discard, or delete all of those files at once. Stashing several files puts them in one stash instead of one per file.",
       "Discard and delete ask once for the whole selection and list the files. If one file can't be discarded or deleted, Shipyard stops there and says how many were already done.",
       "The unstaged and staged lists each keep their own selection, so a file with both staged and unstaged changes is only acted on in the list you picked it from.",
+      "Click a stash to preview it without applying it. Its files show in the right panel, and clicking one opens its diff. Untracked files saved in the stash are listed too.",
     ],
   },
   {

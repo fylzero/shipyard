@@ -4,11 +4,13 @@ import { formatCommitDate } from "../graphLayout";
 
 defineProps<{
   stashes: StashEntry[];
+  selectedHash: string;
   busy: boolean;
   canStash: boolean;
 }>();
 
 const emit = defineEmits<{
+  select: [stash: StashEntry];
   apply: [stash: StashEntry];
   pop: [stash: StashEntry];
   drop: [stash: StashEntry];
@@ -24,10 +26,18 @@ function stashRef(index: number) {
   <div class="branch-pane">
     <div class="graph-scroll branch-list">
       <p class="muted tiny branch-list-hint">
-        Apply keeps the stash. Pop applies it and removes it. Drop deletes it without applying.
+        Click a stash to preview its changes. Apply keeps the stash. Pop applies it and removes it.
+        Drop deletes it without applying.
       </p>
       <p v-if="!stashes.length" class="muted tiny empty-files">No stashes.</p>
-      <div v-for="stash in stashes" :key="stash.index" class="branch-row stash-row">
+      <div
+        v-for="stash in stashes"
+        :key="stash.hash || stash.index"
+        class="branch-row stash-row"
+        :class="{ selected: selectedHash !== '' && selectedHash === stash.hash }"
+        :aria-selected="selectedHash !== '' && selectedHash === stash.hash"
+        @click="emit('select', stash)"
+      >
         <span class="branch-pill">{{ stashRef(stash.index) }}</span>
         <span class="branch-row-name" :title="stash.message">{{ stash.message }}</span>
         <span class="stash-row-date">{{ formatCommitDate(stash.date) }}</span>
@@ -37,7 +47,7 @@ function stashRef(index: number) {
             type="button"
             :disabled="busy"
             :title="`Apply ${stashRef(stash.index)}`"
-            @click="emit('apply', stash)"
+            @click.stop="emit('apply', stash)"
           >
             <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -51,7 +61,7 @@ function stashRef(index: number) {
             type="button"
             :disabled="busy"
             :title="`Pop ${stashRef(stash.index)}`"
-            @click="emit('pop', stash)"
+            @click.stop="emit('pop', stash)"
           >
             <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -65,7 +75,7 @@ function stashRef(index: number) {
             type="button"
             :disabled="busy"
             :title="`Drop ${stashRef(stash.index)}`"
-            @click="emit('drop', stash)"
+            @click.stop="emit('drop', stash)"
           >
             <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 18 18 6M6 6l12 12" />

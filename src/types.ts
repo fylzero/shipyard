@@ -203,6 +203,7 @@ export interface RemoteOverview {
 
 export interface StashEntry {
   index: number;
+  hash: string;
   message: string;
   date: string;
 }

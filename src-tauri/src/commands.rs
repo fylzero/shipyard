@@ -1513,6 +1513,28 @@ pub fn stash_list(state: State<AppState>, path: String) -> Result<Vec<StashEntry
 }
 
 #[tauri::command]
+pub fn stash_changes(
+    state: State<AppState>,
+    path: String,
+    hash: String,
+) -> Result<Vec<CommitFile>, String> {
+    let git = require_git(&state)?;
+    git::stash_changes(&git, Path::new(&path), &hash)
+}
+
+#[tauri::command]
+pub fn stash_file_diff(
+    state: State<AppState>,
+    path: String,
+    hash: String,
+    file: String,
+    old_path: Option<String>,
+) -> Result<String, String> {
+    let git = require_git(&state)?;
+    git::stash_file_diff(&git, Path::new(&path), &hash, &file, old_path.as_deref())
+}
+
+#[tauri::command]
 pub async fn stash_apply(
     state: State<'_, AppState>,
     path: String,

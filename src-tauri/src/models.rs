@@ -593,6 +593,7 @@ pub struct RemoteOverview {
 #[serde(rename_all = "camelCase")]
 pub struct StashEntry {
     pub index: u32,
+    pub hash: String,
     pub message: String,
     pub date: String,
 }

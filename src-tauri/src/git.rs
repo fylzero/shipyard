@@ -3445,7 +3445,11 @@ fn require_commit(git: &Path, repo: &Path, hash: &str) -> Result<String, String>
 }
 
 fn first_parent(git: &Path, repo: &Path, hash: &str) -> Result<Option<String>, String> {
-    let spec = format!("{hash}^");
+    nth_parent(git, repo, hash, 1)
+}
+
+fn nth_parent(git: &Path, repo: &Path, hash: &str, n: u8) -> Result<Option<String>, String> {
+    let spec = format!("{hash}^{n}");
     let output = run_git(git, repo, &["rev-parse", "--verify", "--quiet", &spec])?;
     let resolved = output.stdout.trim();
     if !output.success || resolved.is_empty() {
@@ -3543,6 +3547,7 @@ fn parse_stash_line(line: &str) -> Option<StashEntry> {
     let index = parse_stash_index(selector)?;
     Some(StashEntry {
         index,
+        hash: parts.next().unwrap_or_default().trim().to_string(),
         message: parts.next().unwrap_or_default().to_string(),
         date: parts.next().unwrap_or_default().to_string(),
     })
@@ -3557,7 +3562,7 @@ pub fn stash_list(git: &Path, repo: &Path) -> Result<Vec<StashEntry>, String> {
     let output = run_git(
         git,
         repo,
-        &["stash", "list", "--pretty=format:%gd%x1f%gs%x1f%aI"],
+        &["stash", "list", "--pretty=format:%gd%x1f%H%x1f%gs%x1f%aI"],
     )?;
     if !output.success {
         if missing_stash_ref(&combined_message(&output)) {
@@ -3657,6 +3662,100 @@ pub fn stash_push(git: &Path, repo: &Path, message: &str) -> Result<String, Stri
         return Err("Nothing to stash.".into());
     }
     Ok(or_fallback(&combined, "Stashed changes"))
+}
+
+/// A stash commit's first parent is the commit it was made on; its optional third parent holds untracked files.
+fn require_stash(git: &Path, repo: &Path, hash: &str) -> Result<(String, String), String> {
+    let hash = require_commit(git, repo, hash).map_err(|_| "Stash not found.".to_string())?;
+    let base = first_parent(git, repo, &hash)?.ok_or_else(|| "Stash not found.".to_string())?;
+    Ok((hash, base))
+}
+
+pub fn stash_changes(git: &Path, repo: &Path, hash: &str) -> Result<Vec<CommitFile>, String> {
+    let (hash, base) = require_stash(git, repo, hash)?;
+    let output = run_git(
+        git,
+        repo,
+        &[
+            "diff-tree",
+            "--no-commit-id",
+            "--name-status",
+            "-r",
+            "--find-renames",
+            &base,
+            &hash,
+        ],
+    )?;
+    if !output.success {
+        return Err(or_fallback(
+            &combined_message(&output),
+            "Could not read the stash files.",
+        ));
+    }
+    let mut files: Vec<CommitFile> = output
+        .stdout
+        .lines()
+        .filter_map(parse_name_status_line)
+        .collect();
+
+    if let Some(untracked) = nth_parent(git, repo, &hash, 3)? {
+        let output = run_git(git, repo, &["ls-tree", "-r", "--name-only", "-z", &untracked])?;
+        if !output.success {
+            return Err(or_fallback(
+                &combined_message(&output),
+                "Could not read the stash files.",
+            ));
+        }
+        files.extend(
+            output
+                .stdout
+                .split('\0')
+                .filter(|path| !path.is_empty())
+                .map(|path| CommitFile {
+                    path: path.to_string(),
+                    old_path: None,
+                    status: describe_letter('?'),
+                }),
+        );
+    }
+    Ok(files)
+}
+
+pub fn stash_file_diff(
+    git: &Path,
+    repo: &Path,
+    hash: &str,
+    file: &str,
+    old_path: Option<&str>,
+) -> Result<String, String> {
+    require_file_path(file)?;
+    if let Some(old_path) = old_path {
+        require_file_path(old_path)?;
+    }
+    let (hash, base) = require_stash(git, repo, hash)?;
+    let output = match nth_parent(git, repo, &hash, 3)? {
+        Some(untracked) if file_exists_at(git, repo, &untracked, file) => run_git(
+            git,
+            repo,
+            &["show", "--pretty=format:", &untracked, "--", file],
+        )?,
+        _ => {
+            let mut args = vec!["diff", "--find-renames", base.as_str(), hash.as_str(), "--"];
+            args.extend(old_path);
+            args.push(file);
+            run_git(git, repo, &args)?
+        }
+    };
+    if !output.success && output.stdout.trim().is_empty() {
+        return Err(or_fallback(
+            &combined_message(&output),
+            "Could not read the stash diff.",
+        ));
+    }
+    if output.stdout.trim().is_empty() {
+        return Ok("No changes.".into());
+    }
+    Ok(output.stdout)
 }
 
 fn parse_tag_line(line: &str) -> Option<TagEntry> {
@@ -6236,6 +6335,36 @@ filename README.md
         assert!(fs::read_to_string(repo.join("README.md"))
             .unwrap()
             .contains("stashed-b"));
+    }
+
+    #[test]
+    fn previews_stash_files_including_untracked() {
+        let repo = init_repo();
+        fs::write(repo.join("README.md"), "stashed\n").unwrap();
+        fs::write(repo.join("notes.txt"), "untracked\n").unwrap();
+        stash_push(&git_bin(), &repo, "preview").unwrap();
+
+        let stash = stash_list(&git_bin(), &repo).unwrap().remove(0);
+        assert_eq!(stash.hash.len(), 40);
+        let files = stash_changes(&git_bin(), &repo, &stash.hash).unwrap();
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|file| file.path == "README.md" && file.status == "Modified"));
+        assert!(files.iter().any(|file| file.path == "notes.txt" && file.status == "Untracked"));
+
+        let tracked = stash_file_diff(&git_bin(), &repo, &stash.hash, "README.md", None).unwrap();
+        assert!(tracked.contains("-hello") && tracked.contains("+stashed"));
+        let untracked = stash_file_diff(&git_bin(), &repo, &stash.hash, "notes.txt", None).unwrap();
+        assert!(untracked.contains("+untracked"));
+
+        fs::write(repo.join("README.md"), "tracked only\n").unwrap();
+        git(&repo, &["stash", "push", "-m", "no untracked"]);
+        let stash = stash_list(&git_bin(), &repo).unwrap().remove(0);
+        let files = stash_changes(&git_bin(), &repo, &stash.hash).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "README.md");
+
+        assert!(stash_changes(&git_bin(), &repo, "not-a-hash").is_err());
+        assert!(stash_file_diff(&git_bin(), &repo, &stash.hash, "../escape", None).is_err());
     }
 
     #[test]

@@ -481,6 +481,14 @@ export function stashList(path: string) {
   return invoke<StashEntry[]>("stash_list", { path });
 }
 
+export function stashChanges(path: string, hash: string) {
+  return invoke<CommitFile[]>("stash_changes", { path, hash });
+}
+
+export function stashFileDiff(path: string, hash: string, file: string, oldPath?: string | null) {
+  return invoke<string>("stash_file_diff", { path, hash, file, oldPath: oldPath || null });
+}
+
 export function stashPush(path: string, message: string) {
   return invoke<string>("stash_push", { path, message });
 }
