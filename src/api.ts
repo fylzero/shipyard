@@ -485,8 +485,8 @@ export function stashPush(path: string, message: string) {
   return invoke<string>("stash_push", { path, message });
 }
 
-export function stashFile(path: string, file: string) {
-  return invoke<string>("stash_file", { path, file });
+export function stashFile(path: string, file: string, message: string) {
+  return invoke<string>("stash_file", { path, file, message });
 }
 
 export function stashApply(path: string, index: number) {

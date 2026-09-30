@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     notes: [
       "Text fields no longer capitalize the first letter as you type. Commit titles and descriptions, tag names and messages, branch names, stash messages, remotes, clone paths, and search fields keep the case you type.",
       "Git name and email, group names, repo labels, and custom font names do the same.",
+      "Stash file in the right-click menu now asks for a name, like stashing all changes does. The name starts as the file's path, so you can tell file stashes apart instead of seeing the same \"WIP on\" name for each one.",
     ],
   },
   {

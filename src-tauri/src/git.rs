@@ -4449,17 +4449,29 @@ pub fn ignore_working_tree_path(
     Ok(())
 }
 
-pub fn stash_file(git: &Path, repo: &Path, file: &str) -> Result<String, String> {
+pub fn stash_file(git: &Path, repo: &Path, file: &str, message: &str) -> Result<String, String> {
     require_file_path(file)?;
+    if message.contains('\0') {
+        return Err("Invalid stash message.".into());
+    }
     let files = working_tree(git, repo)?;
     if !files.iter().any(|entry| entry.path == file) {
         return Err("Nothing to stash for that file.".into());
     }
-    let output = run_git(
-        git,
-        repo,
-        &["stash", "push", "--include-untracked", "--", file],
-    )?;
+    let message = message.trim();
+    let output = if message.is_empty() {
+        run_git(
+            git,
+            repo,
+            &["stash", "push", "--include-untracked", "--", file],
+        )?
+    } else {
+        run_git(
+            git,
+            repo,
+            &["stash", "push", "--include-untracked", "-m", message, "--", file],
+        )?
+    };
     if !output.success {
         return Err(or_fallback(
             &combined_message(&output),
@@ -5048,18 +5060,22 @@ filename README.md
         fs::write(repo.join("README.md"), "changed\n").unwrap();
         fs::write(repo.join("notes.txt"), "untracked\n").unwrap();
 
-        stash_file(&git_bin(), &repo, "notes.txt").unwrap();
+        stash_file(&git_bin(), &repo, "notes.txt", "  notes draft  ").unwrap();
         assert!(!repo.join("notes.txt").exists());
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(files.iter().any(|file| file.path == "README.md"));
         assert!(!files.iter().any(|file| file.path == "notes.txt"));
-        assert_eq!(stash_list(&git_bin(), &repo).unwrap().len(), 1);
+        let stashes = stash_list(&git_bin(), &repo).unwrap();
+        assert_eq!(stashes.len(), 1);
+        assert!(stashes[0].message.ends_with(": notes draft"));
 
-        stash_file(&git_bin(), &repo, "README.md").unwrap();
+        stash_file(&git_bin(), &repo, "README.md", "").unwrap();
         assert!(working_tree(&git_bin(), &repo).unwrap().is_empty());
         assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "hello\n");
-        assert_eq!(stash_list(&git_bin(), &repo).unwrap().len(), 2);
-        assert!(stash_file(&git_bin(), &repo, "README.md").is_err());
+        let stashes = stash_list(&git_bin(), &repo).unwrap();
+        assert_eq!(stashes.len(), 2);
+        assert!(stashes[0].message.starts_with("WIP on "));
+        assert!(stash_file(&git_bin(), &repo, "README.md", "").is_err());
     }
 
     #[test]

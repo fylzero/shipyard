@@ -1551,9 +1551,12 @@ pub async fn stash_file(
     state: State<'_, AppState>,
     path: String,
     file: String,
+    message: String,
 ) -> Result<String, String> {
     let git = require_git(&state)?;
-    tauri::async_runtime::spawn_blocking(move || git::stash_file(&git, Path::new(&path), &file))
+    tauri::async_runtime::spawn_blocking(move || {
+        git::stash_file(&git, Path::new(&path), &file, &message)
+    })
         .await
         .map_err(|err| err.to_string())?
 }

@@ -181,6 +181,7 @@ const commitTitleInput = ref<HTMLInputElement | null>(null);
 const stashing = ref(false);
 const stashMessage = ref("");
 const stashMessageInput = ref<HTMLInputElement | null>(null);
+const stashFileTarget = ref<WorkingTreeFile | null>(null);
 const creatingTag = ref(false);
 const newTagName = ref("");
 const newTagMessage = ref("");
@@ -1399,6 +1400,7 @@ async function openStash() {
   if (actionBusy.value || !files.value.length) {
     return;
   }
+  stashFileTarget.value = null;
   stashMessage.value = "";
   stashing.value = true;
   await nextTick();
@@ -1408,6 +1410,7 @@ async function openStash() {
 function closeStash() {
   stashing.value = false;
   stashMessage.value = "";
+  stashFileTarget.value = null;
 }
 
 function stashChanges() {
@@ -1416,8 +1419,12 @@ function stashChanges() {
     return;
   }
   const message = stashMessage.value;
+  const file = stashFileTarget.value;
   closeStash();
   closeDiff();
+  if (file) {
+    return runRepoAction("Stashing…", () => api.stashFile(match.repo.path, file.path, message));
+  }
   return runRepoAction("Stashing…", () => api.stashPush(match.repo.path, message));
 }
 
@@ -2526,13 +2533,16 @@ async function ignoreFile(file: WorkingTreeFile, kind: IgnoreKind) {
   }
 }
 
-function stashFile(file: WorkingTreeFile) {
-  const match = current.value;
-  if (!match || actionBusy.value) {
+async function stashFile(file: WorkingTreeFile) {
+  if (!current.value || actionBusy.value) {
     return;
   }
-  closeDiff();
-  return runRepoAction("Stashing…", () => api.stashFile(match.repo.path, file.path));
+  stashFileTarget.value = file;
+  stashMessage.value = file.path;
+  stashing.value = true;
+  await nextTick();
+  stashMessageInput.value?.focus();
+  stashMessageInput.value?.select();
 }
 
 async function revealFile(file: WorkingTreeFile) {
@@ -3141,7 +3151,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
       </button>
     </template>
   </Modal>
-  <Modal v-if="stashing" title="Stash changes" @close="closeStash">
+  <Modal v-if="stashing" :title="stashFileTarget ? 'Stash file' : 'Stash changes'" @close="closeStash">
     <label class="modal-label">
       <span class="muted tiny">Message</span>
       <input
@@ -3156,7 +3166,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         @keydown.enter.prevent="stashChanges"
       />
     </label>
-    <p class="muted tiny">Saves staged, unstaged, and untracked files, then clears the working tree.</p>
+    <p v-if="stashFileTarget" class="muted tiny">
+      Saves the changes to {{ stashFileTarget.path }}, then removes them from the working tree. Other files stay as they are.
+    </p>
+    <p v-else class="muted tiny">Saves staged, unstaged, and untracked files, then clears the working tree.</p>
     <template #actions>
       <button class="ghost" type="button" @click="closeStash">Cancel</button>
       <button class="primary" type="button" :disabled="!files.length" @click="stashChanges">
