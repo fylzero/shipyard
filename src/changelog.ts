@@ -6,6 +6,16 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.10.0",
+    date: "September 30, 2026",
+    notes: [
+      "You can select several files in the unstaged or staged list. Cmd-click adds or removes a file, Shift-click selects a range, and Escape clears the selection. Clicking a file on its own still opens its diff.",
+      "Right-click a selection to stage or unstage, ignore, stash, discard, or delete all of those files at once. Stashing several files puts them in one stash instead of one per file.",
+      "Discard and delete ask once for the whole selection and list the files. If one file can't be discarded or deleted, Shipyard stops there and says how many were already done.",
+      "The unstaged and staged lists each keep their own selection, so a file with both staged and unstaged changes is only acted on in the list you picked it from.",
+    ],
+  },
+  {
     version: "1.9.1",
     date: "September 30, 2026",
     notes: [

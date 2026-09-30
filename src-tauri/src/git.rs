@@ -4295,6 +4295,13 @@ fn repo_file_path(repo: &Path, file: &str) -> Result<PathBuf, String> {
     Ok(repo.join(file))
 }
 
+fn require_file_paths(files: &[&str]) -> Result<(), String> {
+    if files.is_empty() {
+        return Err("No files selected.".into());
+    }
+    files.iter().try_for_each(|file| require_file_path(file))
+}
+
 fn is_git_internal(file: &str) -> bool {
     let normalized = file.replace('\\', "/");
     normalized == ".git" || normalized.starts_with(".git/")
@@ -4449,40 +4456,43 @@ pub fn ignore_working_tree_path(
     Ok(())
 }
 
-pub fn stash_file(git: &Path, repo: &Path, file: &str, message: &str) -> Result<String, String> {
-    require_file_path(file)?;
+pub fn stash_files(
+    git: &Path,
+    repo: &Path,
+    files: &[&str],
+    message: &str,
+) -> Result<String, String> {
+    require_file_paths(files)?;
     if message.contains('\0') {
         return Err("Invalid stash message.".into());
     }
-    let files = working_tree(git, repo)?;
-    if !files.iter().any(|entry| entry.path == file) {
-        return Err("Nothing to stash for that file.".into());
+    let entries = working_tree(git, repo)?;
+    if let Some(missing) = files
+        .iter()
+        .find(|file| !entries.iter().any(|entry| entry.path == **file))
+    {
+        return Err(format!("Nothing to stash for {missing}."));
     }
     let message = message.trim();
-    let output = if message.is_empty() {
-        run_git(
-            git,
-            repo,
-            &["stash", "push", "--include-untracked", "--", file],
-        )?
-    } else {
-        run_git(
-            git,
-            repo,
-            &["stash", "push", "--include-untracked", "-m", message, "--", file],
-        )?
-    };
+    let mut args = vec!["stash", "push", "--include-untracked"];
+    if !message.is_empty() {
+        args.extend(["-m", message]);
+    }
+    args.push("--");
+    args.extend(files);
+    let output = run_git(git, repo, &args)?;
+    let noun = if files.len() == 1 { "file" } else { "files" };
     if !output.success {
         return Err(or_fallback(
             &combined_message(&output),
-            "Failed to stash the file.",
+            &format!("Failed to stash the {noun}."),
         ));
     }
     let combined = combined_message(&output);
     if combined.to_ascii_lowercase().contains("no local changes") {
-        return Err("Nothing to stash for that file.".into());
+        return Err(format!("Nothing to stash for those {noun}."));
     }
-    Ok(or_fallback(&combined, "Stashed file"))
+    Ok(or_fallback(&combined, &format!("Stashed {noun}")))
 }
 
 pub fn delete_working_tree_file(git: &Path, repo: &Path, file: &str) -> Result<(), String> {
@@ -4521,11 +4531,13 @@ pub fn delete_working_tree_file(git: &Path, repo: &Path, file: &str) -> Result<(
     Ok(())
 }
 
-pub fn stage_file(git: &Path, repo: &Path, file: &str) -> Result<(), String> {
-    require_file_path(file)?;
-    let output = run_git(git, repo, &["add", "--", file])?;
+pub fn stage_files(git: &Path, repo: &Path, files: &[&str]) -> Result<(), String> {
+    require_file_paths(files)?;
+    let mut args = vec!["add", "--"];
+    args.extend(files);
+    let output = run_git(git, repo, &args)?;
     if !output.success {
-        return Err(or_fallback(&combined_message(&output), "Failed to stage file."));
+        return Err(or_fallback(&combined_message(&output), "Failed to stage files."));
     }
     Ok(())
 }
@@ -4538,13 +4550,15 @@ pub fn stage_all(git: &Path, repo: &Path) -> Result<(), String> {
     Ok(())
 }
 
-pub fn unstage_file(git: &Path, repo: &Path, file: &str) -> Result<(), String> {
-    require_file_path(file)?;
-    let output = run_git(git, repo, &["restore", "--staged", "--", file])?;
+pub fn unstage_files(git: &Path, repo: &Path, files: &[&str]) -> Result<(), String> {
+    require_file_paths(files)?;
+    let mut args = vec!["restore", "--staged", "--"];
+    args.extend(files);
+    let output = run_git(git, repo, &args)?;
     if !output.success {
         return Err(or_fallback(
             &combined_message(&output),
-            "Failed to unstage file.",
+            "Failed to unstage files.",
         ));
     }
     Ok(())
@@ -5060,7 +5074,7 @@ filename README.md
         fs::write(repo.join("README.md"), "changed\n").unwrap();
         fs::write(repo.join("notes.txt"), "untracked\n").unwrap();
 
-        stash_file(&git_bin(), &repo, "notes.txt", "  notes draft  ").unwrap();
+        stash_files(&git_bin(), &repo, &["notes.txt"], "  notes draft  ").unwrap();
         assert!(!repo.join("notes.txt").exists());
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(files.iter().any(|file| file.path == "README.md"));
@@ -5069,13 +5083,33 @@ filename README.md
         assert_eq!(stashes.len(), 1);
         assert!(stashes[0].message.ends_with(": notes draft"));
 
-        stash_file(&git_bin(), &repo, "README.md", "").unwrap();
+        stash_files(&git_bin(), &repo, &["README.md"], "").unwrap();
         assert!(working_tree(&git_bin(), &repo).unwrap().is_empty());
         assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "hello\n");
         let stashes = stash_list(&git_bin(), &repo).unwrap();
         assert_eq!(stashes.len(), 2);
         assert!(stashes[0].message.starts_with("WIP on "));
-        assert!(stash_file(&git_bin(), &repo, "README.md", "").is_err());
+        assert!(stash_files(&git_bin(), &repo, &["README.md"], "").is_err());
+        assert!(stash_files(&git_bin(), &repo, &[], "").is_err());
+    }
+
+    #[test]
+    fn stashes_several_files_into_one_stash() {
+        let repo = init_repo();
+        fs::write(repo.join("README.md"), "changed\n").unwrap();
+        fs::write(repo.join("a.txt"), "a\n").unwrap();
+        fs::write(repo.join("b.txt"), "b\n").unwrap();
+
+        assert!(stash_files(&git_bin(), &repo, &["a.txt", "missing.txt"], "").is_err());
+        assert!(repo.join("a.txt").exists());
+
+        stash_files(&git_bin(), &repo, &["a.txt", "b.txt"], "pair").unwrap();
+        assert!(!repo.join("a.txt").exists());
+        assert!(!repo.join("b.txt").exists());
+        let files = working_tree(&git_bin(), &repo).unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "README.md");
+        assert_eq!(stash_list(&git_bin(), &repo).unwrap().len(), 1);
     }
 
     #[test]
@@ -5115,7 +5149,7 @@ filename README.md
         assert!(files.iter().any(|file| file.path == "README.md" && !file.staged));
         assert!(!files.iter().any(|file| file.staged));
 
-        stage_file(&git_bin(), &repo, "new.txt").unwrap();
+        stage_files(&git_bin(), &repo, &["new.txt"]).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(files.iter().any(|file| file.path == "new.txt" && file.staged));
         assert!(!files.iter().any(|file| file.path == "new.txt" && !file.staged));
@@ -5129,7 +5163,7 @@ filename README.md
         let staged_diff = file_diff(&git_bin(), &repo, "README.md", true).unwrap();
         assert!(staged_diff.contains("-hello") || staged_diff.contains("+changed"));
 
-        unstage_file(&git_bin(), &repo, "new.txt").unwrap();
+        unstage_files(&git_bin(), &repo, &["new.txt"]).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(files.iter().any(|file| file.path == "new.txt" && !file.staged));
         assert!(!files.iter().any(|file| file.path == "new.txt" && file.staged));
@@ -5176,7 +5210,7 @@ filename README.md
         assert_eq!(last.description, "More detail.");
 
         fs::write(repo.join("extra.txt"), "forgot\n").unwrap();
-        stage_file(&git_bin(), &repo, "extra.txt").unwrap();
+        stage_files(&git_bin(), &repo, &["extra.txt"]).unwrap();
         let message = commit(&git_bin(), &repo, "Update readme", "More detail.", true).unwrap();
         assert!(message.to_lowercase().contains("update readme") || message.contains("develop"));
         let files = working_tree(&git_bin(), &repo).unwrap();
@@ -6731,7 +6765,7 @@ filename README.md
     fn marks_conflict_resolved_and_continues_merge() {
         let repo = conflicted_merge_repo();
         fs::write(repo.join("README.md"), "resolved\n").unwrap();
-        stage_file(&git_bin(), &repo, "README.md").unwrap();
+        stage_files(&git_bin(), &repo, &["README.md"]).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(!files.iter().any(|file| file.status == "Conflicted"));
         assert!(files.iter().any(|file| file.path == "README.md" && file.staged));

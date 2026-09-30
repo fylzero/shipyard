@@ -9,7 +9,7 @@ import {
 } from "../gitOperation";
 
 const props = defineProps<{
-  file: WorkingTreeFile;
+  files: WorkingTreeFile[];
   x: number;
   y: number;
   editorLabel: string;
@@ -36,10 +36,15 @@ const top = ref(props.y);
 const ignoreOpen = ref(false);
 const submenuLeft = ref(false);
 
-const name = computed(() => fileBasename(props.file.path));
-const extension = computed(() => fileExtension(props.file.path));
-const folder = computed(() => fileParentFolder(props.file.path));
-const onDisk = computed(() => props.file.status.trim().toLowerCase() !== "deleted");
+const file = computed(() => props.files[0]);
+const count = computed(() => props.files.length);
+const multiple = computed(() => count.value > 1);
+const name = computed(() => fileBasename(file.value.path));
+const extension = computed(() => fileExtension(file.value.path));
+const folder = computed(() => fileParentFolder(file.value.path));
+const onDisk = computed(() =>
+  props.files.every((entry) => entry.status.trim().toLowerCase() !== "deleted"),
+);
 
 async function placeMenu() {
   await nextTick();
@@ -92,7 +97,7 @@ onUnmounted(() => {
 });
 
 watch(
-  () => [props.x, props.y, props.file.path],
+  () => [props.x, props.y, props.files.map((entry) => entry.path).join("\0")],
   () => {
     ignoreOpen.value = false;
     left.value = props.x;
@@ -117,9 +122,19 @@ watch(
         role="menuitem"
         @click="file.staged ? emit('unstage') : emit('stage')"
       >
-        {{ file.staged ? "Unstage" : "Stage" }}
+        {{ file.staged ? "Unstage" : "Stage" }}{{ multiple ? ` ${count} files` : "" }}
+      </button>
+      <button
+        v-if="multiple"
+        class="context-menu-item"
+        type="button"
+        role="menuitem"
+        @click="emit('ignore', 'file')"
+      >
+        Ignore {{ count }} files
       </button>
       <div
+        v-else
         class="context-menu-subwrap"
         @mouseenter="ignoreOpen = true"
         @mouseleave="ignoreOpen = false"
@@ -179,36 +194,38 @@ watch(
         :title="canStash ? undefined : 'Finish or abort the merge or rebase before stashing.'"
         @click="emit('stash')"
       >
-        Stash file
+        {{ multiple ? `Stash ${count} files` : "Stash file" }}
       </button>
-      <div class="context-menu-sep" />
-      <button
-        class="context-menu-item"
-        type="button"
-        role="menuitem"
-        :disabled="!onDisk"
-        @click="emit('openEditor')"
-      >
-        {{ editorLabel }}
-      </button>
-      <button
-        class="context-menu-item"
-        type="button"
-        role="menuitem"
-        :disabled="!onDisk"
-        @click="emit('reveal')"
-      >
-        Show in Finder
-      </button>
-      <div class="context-menu-sep" />
-      <button
-        class="context-menu-item"
-        type="button"
-        role="menuitem"
-        @click="emit('copyPath')"
-      >
-        Copy file path
-      </button>
+      <template v-if="!multiple">
+        <div class="context-menu-sep" />
+        <button
+          class="context-menu-item"
+          type="button"
+          role="menuitem"
+          :disabled="!onDisk"
+          @click="emit('openEditor')"
+        >
+          {{ editorLabel }}
+        </button>
+        <button
+          class="context-menu-item"
+          type="button"
+          role="menuitem"
+          :disabled="!onDisk"
+          @click="emit('reveal')"
+        >
+          Show in Finder
+        </button>
+        <div class="context-menu-sep" />
+        <button
+          class="context-menu-item"
+          type="button"
+          role="menuitem"
+          @click="emit('copyPath')"
+        >
+          Copy file path
+        </button>
+      </template>
       <div class="context-menu-sep" />
       <button
         class="context-menu-item danger"
@@ -218,16 +235,17 @@ watch(
         :title="canDiscard ? undefined : 'Abort the merge or rebase instead of discarding changes.'"
         @click="emit('discard')"
       >
-        Discard changes
+        {{ multiple ? `Discard changes in ${count} files` : "Discard changes" }}
       </button>
       <button
         class="context-menu-item danger"
         type="button"
         role="menuitem"
         :disabled="!onDisk"
+        :title="onDisk || !multiple ? undefined : 'Some of these files are already deleted.'"
         @click="emit('delete')"
       >
-        Delete file
+        {{ multiple ? `Delete ${count} files` : "Delete file" }}
       </button>
     </div>
   </Teleport>

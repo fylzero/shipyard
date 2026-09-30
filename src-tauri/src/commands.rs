@@ -1093,9 +1093,10 @@ pub fn delete_working_tree_file(
 }
 
 #[tauri::command]
-pub fn stage_file(state: State<AppState>, path: String, file: String) -> Result<(), String> {
+pub fn stage_files(state: State<AppState>, path: String, files: Vec<String>) -> Result<(), String> {
     let git = require_git(&state)?;
-    git::stage_file(&git, Path::new(&path), &file)
+    let files: Vec<&str> = files.iter().map(String::as_str).collect();
+    git::stage_files(&git, Path::new(&path), &files)
 }
 
 #[tauri::command]
@@ -1105,9 +1106,10 @@ pub fn stage_all(state: State<AppState>, path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn unstage_file(state: State<AppState>, path: String, file: String) -> Result<(), String> {
+pub fn unstage_files(state: State<AppState>, path: String, files: Vec<String>) -> Result<(), String> {
     let git = require_git(&state)?;
-    git::unstage_file(&git, Path::new(&path), &file)
+    let files: Vec<&str> = files.iter().map(String::as_str).collect();
+    git::unstage_files(&git, Path::new(&path), &files)
 }
 
 #[tauri::command]
@@ -1547,15 +1549,16 @@ pub async fn stash_push(
 }
 
 #[tauri::command]
-pub async fn stash_file(
+pub async fn stash_files(
     state: State<'_, AppState>,
     path: String,
-    file: String,
+    files: Vec<String>,
     message: String,
 ) -> Result<String, String> {
     let git = require_git(&state)?;
     tauri::async_runtime::spawn_blocking(move || {
-        git::stash_file(&git, Path::new(&path), &file, &message)
+        let files: Vec<&str> = files.iter().map(String::as_str).collect();
+        git::stash_files(&git, Path::new(&path), &files, &message)
     })
         .await
         .map_err(|err| err.to_string())?

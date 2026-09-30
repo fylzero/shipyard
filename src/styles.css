@@ -3557,7 +3557,7 @@ svg.file-tree-twist.open {
   color: color-mix(in srgb, var(--muted) 72%, transparent);
 }
 
-.file-item:hover:not(.active) {
+.file-item:hover:not(.active):not(.selected) {
   --row-bg: var(--bg-hover);
   background: var(--bg-hover);
 }
@@ -3735,6 +3735,11 @@ svg.file-tree-twist.open {
 
 .file-item-action.editor {
   background: color-mix(in srgb, var(--text) 10%, #12151b);
+}
+
+.file-item.selected {
+  --row-bg: color-mix(in srgb, var(--bg-active) 70%, var(--bg-raised));
+  background: var(--row-bg);
 }
 
 .file-item.active {

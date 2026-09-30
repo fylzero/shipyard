@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { rangeIds, toggleId } from "../selection";
 import type { WorkingTreeFile } from "../types";
 import { useApp } from "../composables/useApp";
 import { isConflicted, openInEditorLabel, type IgnoreKind } from "../gitOperation";
@@ -17,22 +18,24 @@ const props = defineProps<{
 
 const { editor } = useApp();
 const openEditorLabel = computed(() => openInEditorLabel(editor.value));
-const menu = ref<{ file: WorkingTreeFile; x: number; y: number } | null>(null);
+const menu = ref<{ files: WorkingTreeFile[]; x: number; y: number } | null>(null);
+const selection = ref<{ staged: boolean; paths: string[] }>({ staged: false, paths: [] });
+const anchor = ref<string | null>(null);
 
 const emit = defineEmits<{
   select: [file: WorkingTreeFile, options?: { toggle?: boolean }];
-  stage: [file: WorkingTreeFile];
-  unstage: [file: WorkingTreeFile];
+  stage: [files: WorkingTreeFile[]];
+  unstage: [files: WorkingTreeFile[]];
   stageAll: [];
   unstageAll: [];
   discard: [];
   stash: [];
-  stashFile: [file: WorkingTreeFile];
-  ignore: [file: WorkingTreeFile, kind: IgnoreKind];
+  stashFiles: [files: WorkingTreeFile[]];
+  ignore: [files: WorkingTreeFile[], kind: IgnoreKind];
   reveal: [file: WorkingTreeFile];
   copyPath: [file: WorkingTreeFile];
-  discardFile: [file: WorkingTreeFile];
-  deleteFile: [file: WorkingTreeFile];
+  discardFiles: [files: WorkingTreeFile[]];
+  deleteFiles: [files: WorkingTreeFile[]];
   commit: [];
   openEditor: [file: WorkingTreeFile];
 }>();
@@ -49,34 +52,125 @@ const canCommit = computed(
   () => props.files.length > 0 && (!props.operation || props.operation === "merge"),
 );
 
-function isSelected(file: WorkingTreeFile) {
+function isMac() {
+  return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+}
+
+function isMenuClick(event: MouseEvent) {
+  return event.ctrlKey && !event.metaKey && isMac();
+}
+
+function isActive(file: WorkingTreeFile) {
   return props.selectedPath === file.path && props.selectedStaged === file.staged;
+}
+
+function isPicked(file: WorkingTreeFile) {
+  return selection.value.staged === file.staged && selection.value.paths.includes(file.path);
+}
+
+function listFor(isStaged: boolean) {
+  return isStaged ? staged.value : unstaged.value;
+}
+
+function pickedFiles() {
+  const paths = selection.value.paths;
+  return listFor(selection.value.staged).filter((file) => paths.includes(file.path));
+}
+
+function pick(file: WorkingTreeFile, paths: string[]) {
+  selection.value = { staged: file.staged, paths };
+}
+
+function clearSelection() {
+  selection.value = { staged: false, paths: [] };
+  anchor.value = null;
 }
 
 function openFileMenu(event: MouseEvent, file: WorkingTreeFile) {
   event.preventDefault();
-  emit("select", file, { toggle: false });
-  menu.value = { file, x: event.clientX, y: event.clientY };
+  if (!isPicked(file)) {
+    pick(file, [file.path]);
+    anchor.value = file.path;
+    emit("select", file, { toggle: false });
+  }
+  menu.value = { files: pickedFiles(), x: event.clientX, y: event.clientY };
+}
+
+function onRowClick(event: MouseEvent, file: WorkingTreeFile) {
+  if (isMenuClick(event)) {
+    openFileMenu(event, file);
+  }
 }
 
 function onFileClick(event: MouseEvent, file: WorkingTreeFile) {
-  // Ctrl-click opens the menu from the row handler; toggling here would close the diff it selects.
-  if (event.ctrlKey) {
+  if (isMenuClick(event)) {
     return;
   }
-  emit("select", file);
+  const sameList = selection.value.staged === file.staged && selection.value.paths.length > 0;
+  if (event.shiftKey) {
+    const activeHere = props.selectedPath && props.selectedStaged === file.staged;
+    const from = sameList ? anchor.value : activeHere ? props.selectedPath : null;
+    const paths = listFor(file.staged).map((entry) => entry.path);
+    pick(file, from ? rangeIds(paths, from, file.path) : [file.path]);
+    anchor.value = from ?? file.path;
+    emit("select", file, { toggle: false });
+    return;
+  }
+  if (event.metaKey || (event.ctrlKey && !isMac())) {
+    const paths = sameList ? toggleId(selection.value.paths, file.path) : [file.path];
+    pick(file, paths);
+    anchor.value = file.path;
+    if (paths.includes(file.path)) {
+      emit("select", file, { toggle: false });
+    }
+    return;
+  }
+  if (isActive(file) && selection.value.paths.length <= 1) {
+    clearSelection();
+    emit("select", file);
+    return;
+  }
+  pick(file, [file.path]);
+  anchor.value = file.path;
+  emit("select", file, { toggle: false });
 }
 
 function closeFileMenu() {
   menu.value = null;
 }
 
+function onKeydown(event: KeyboardEvent) {
+  const target = event.target;
+  if (
+    event.key !== "Escape" ||
+    menu.value ||
+    !selection.value.paths.length ||
+    (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable]"))
+  ) {
+    return;
+  }
+  clearSelection();
+}
+
 watch(
   () => props.files,
   () => {
     closeFileMenu();
+    const live = new Set(listFor(selection.value.staged).map((file) => file.path));
+    selection.value.paths = selection.value.paths.filter((path) => live.has(path));
+    if (anchor.value && !live.has(anchor.value)) {
+      anchor.value = selection.value.paths[selection.value.paths.length - 1] ?? null;
+    }
   },
 );
+
+onMounted(() => {
+  document.addEventListener("keydown", onKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", onKeydown);
+});
 </script>
 
 <template>
@@ -93,7 +187,7 @@ watch(
           v-for="file in conflicted"
           :key="`conflicted:${file.path}`"
           class="file-item"
-          :class="{ active: isSelected(file) }"
+          :class="{ active: isActive(file) }"
         >
           <button class="file-item-main" type="button" @click="emit('select', file)">
             <FileStatusIcon :status="file.status" />
@@ -110,7 +204,7 @@ watch(
             <button
               class="tiny file-item-action stage"
               type="button"
-              @click.stop="emit('stage', file)"
+              @click.stop="emit('stage', [file])"
             >
               Mark resolved
             </button>
@@ -142,9 +236,9 @@ watch(
           v-for="file in unstaged"
           :key="`unstaged:${file.path}`"
           class="file-item"
-          :class="{ active: isSelected(file) }"
+          :class="{ active: isActive(file), selected: isPicked(file) }"
           @contextmenu="openFileMenu($event, file)"
-          @click.ctrl.prevent="openFileMenu($event, file)"
+          @click="onRowClick($event, file)"
         >
           <button class="file-item-main" type="button" @click="onFileClick($event, file)">
             <FileStatusIcon :status="file.status" />
@@ -153,7 +247,7 @@ watch(
           <button
             class="tiny file-item-action stage"
             type="button"
-            @click.stop="emit('stage', file)"
+            @click.stop="emit('stage', [file])"
           >
             <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 4.5v15m7.5-7.5h-15" />
@@ -187,9 +281,9 @@ watch(
           v-for="file in staged"
           :key="`staged:${file.path}`"
           class="file-item"
-          :class="{ active: isSelected(file) }"
+          :class="{ active: isActive(file), selected: isPicked(file) }"
           @contextmenu="openFileMenu($event, file)"
-          @click.ctrl.prevent="openFileMenu($event, file)"
+          @click="onRowClick($event, file)"
         >
           <button class="file-item-main" type="button" @click="onFileClick($event, file)">
             <FileStatusIcon :status="file.status" />
@@ -198,7 +292,7 @@ watch(
           <button
             class="tiny file-item-action unstage"
             type="button"
-            @click.stop="emit('unstage', file)"
+            @click.stop="emit('unstage', [file])"
           >
             <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14" />
@@ -253,21 +347,21 @@ watch(
     </div>
     <FileContextMenu
       v-if="menu"
-      :file="menu.file"
+      :files="menu.files"
       :x="menu.x"
       :y="menu.y"
       :editor-label="openEditorLabel"
       :can-stash="!resolving"
       :can-discard="!resolving"
-      @stage="emit('stage', menu.file); closeFileMenu()"
-      @unstage="emit('unstage', menu.file); closeFileMenu()"
-      @ignore="emit('ignore', menu.file, $event); closeFileMenu()"
-      @stash="emit('stashFile', menu.file); closeFileMenu()"
-      @open-editor="emit('openEditor', menu.file); closeFileMenu()"
-      @reveal="emit('reveal', menu.file); closeFileMenu()"
-      @copy-path="emit('copyPath', menu.file); closeFileMenu()"
-      @discard="emit('discardFile', menu.file); closeFileMenu()"
-      @delete="emit('deleteFile', menu.file); closeFileMenu()"
+      @stage="emit('stage', menu.files); closeFileMenu()"
+      @unstage="emit('unstage', menu.files); closeFileMenu()"
+      @ignore="emit('ignore', menu.files, $event); closeFileMenu()"
+      @stash="emit('stashFiles', menu.files); closeFileMenu()"
+      @open-editor="emit('openEditor', menu.files[0]); closeFileMenu()"
+      @reveal="emit('reveal', menu.files[0]); closeFileMenu()"
+      @copy-path="emit('copyPath', menu.files[0]); closeFileMenu()"
+      @discard="emit('discardFiles', menu.files); closeFileMenu()"
+      @delete="emit('deleteFiles', menu.files); closeFileMenu()"
       @close="closeFileMenu"
     />
   </div>

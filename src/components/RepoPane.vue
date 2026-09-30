@@ -181,7 +181,7 @@ const commitTitleInput = ref<HTMLInputElement | null>(null);
 const stashing = ref(false);
 const stashMessage = ref("");
 const stashMessageInput = ref<HTMLInputElement | null>(null);
-const stashFileTarget = ref<WorkingTreeFile | null>(null);
+const stashFileTargets = ref<WorkingTreeFile[]>([]);
 const creatingTag = ref(false);
 const newTagName = ref("");
 const newTagMessage = ref("");
@@ -798,13 +798,41 @@ async function runWorktreeMutation(work: () => Promise<void>) {
   }
 }
 
-async function stageFile(file: WorkingTreeFile) {
+async function forEachFile(
+  targets: WorkingTreeFile[],
+  work: (file: WorkingTreeFile) => Promise<void>,
+) {
+  for (const [index, file] of targets.entries()) {
+    try {
+      await work(file);
+    } catch (err) {
+      if (targets.length === 1) {
+        throw err;
+      }
+      const progress = index ? `Finished ${index} of ${targets.length} files, then stopped. ` : "";
+      throw `${progress}${file.path}: ${String(err)}`;
+    }
+  }
+}
+
+function fileListPreview(targets: WorkingTreeFile[]) {
+  const shown = targets.slice(0, 8).map((file) => file.path);
+  const more = targets.length - shown.length;
+  return more > 0 ? [...shown, `…and ${more} more`].join("\n") : shown.join("\n");
+}
+
+async function stageFiles(targets: WorkingTreeFile[]) {
   const match = current.value;
-  if (!match) {
+  if (!match || !targets.length) {
     return;
   }
   try {
-    await runWorktreeMutation(() => api.stageFile(match.repo.path, file.path));
+    await runWorktreeMutation(() =>
+      api.stageFiles(
+        match.repo.path,
+        targets.map((file) => file.path),
+      ),
+    );
   } catch (err) {
     message.value = String(err);
   }
@@ -822,13 +850,18 @@ async function stageAll() {
   }
 }
 
-async function unstageFile(file: WorkingTreeFile) {
+async function unstageFiles(targets: WorkingTreeFile[]) {
   const match = current.value;
-  if (!match) {
+  if (!match || !targets.length) {
     return;
   }
   try {
-    await runWorktreeMutation(() => api.unstageFile(match.repo.path, file.path));
+    await runWorktreeMutation(() =>
+      api.unstageFiles(
+        match.repo.path,
+        targets.map((file) => file.path),
+      ),
+    );
   } catch (err) {
     message.value = String(err);
   }
@@ -1400,7 +1433,7 @@ async function openStash() {
   if (actionBusy.value || !files.value.length) {
     return;
   }
-  stashFileTarget.value = null;
+  stashFileTargets.value = [];
   stashMessage.value = "";
   stashing.value = true;
   await nextTick();
@@ -1410,7 +1443,7 @@ async function openStash() {
 function closeStash() {
   stashing.value = false;
   stashMessage.value = "";
-  stashFileTarget.value = null;
+  stashFileTargets.value = [];
 }
 
 function stashChanges() {
@@ -1419,11 +1452,11 @@ function stashChanges() {
     return;
   }
   const message = stashMessage.value;
-  const file = stashFileTarget.value;
+  const paths = stashFileTargets.value.map((file) => file.path);
   closeStash();
   closeDiff();
-  if (file) {
-    return runRepoAction("Stashing…", () => api.stashFile(match.repo.path, file.path, message));
+  if (paths.length) {
+    return runRepoAction("Stashing…", () => api.stashFiles(match.repo.path, paths, message));
   }
   return runRepoAction("Stashing…", () => api.stashPush(match.repo.path, message));
 }
@@ -2515,30 +2548,32 @@ async function openInEditor(file: WorkingTreeFile) {
   }
 }
 
-async function ignoreFile(file: WorkingTreeFile, kind: IgnoreKind) {
+async function ignoreFiles(targets: WorkingTreeFile[], kind: IgnoreKind) {
   const match = current.value;
-  if (!match) {
+  if (!match || !targets.length) {
     return;
   }
   try {
-    await runWorktreeMutation(async () => {
-      await api.ignoreWorkingTreePath(match.repo.path, file.path, kind);
-      if (selectedFile.value?.path === file.path) {
-        closeDiff();
-      }
-    });
+    await runWorktreeMutation(() =>
+      forEachFile(targets, async (file) => {
+        await api.ignoreWorkingTreePath(match.repo.path, file.path, kind);
+        if (selectedFile.value?.path === file.path) {
+          closeDiff();
+        }
+      }),
+    );
   } catch (err) {
     message.value = String(err);
     showToast(String(err), "error");
   }
 }
 
-async function stashFile(file: WorkingTreeFile) {
-  if (!current.value || actionBusy.value) {
+async function stashFiles(targets: WorkingTreeFile[]) {
+  if (!current.value || actionBusy.value || !targets.length) {
     return;
   }
-  stashFileTarget.value = file;
-  stashMessage.value = file.path;
+  stashFileTargets.value = targets;
+  stashMessage.value = targets.length === 1 ? targets[0].path : "";
   stashing.value = true;
   await nextTick();
   stashMessageInput.value?.focus();
@@ -2571,21 +2606,34 @@ async function copyFilePath(file: WorkingTreeFile) {
   }
 }
 
-async function discardFile(file: WorkingTreeFile) {
+function discardPrompt(targets: WorkingTreeFile[]) {
+  if (targets.length > 1) {
+    const deletes = targets.some(
+      (file) => file.untracked || (file.staged && file.status === "Added"),
+    );
+    const note = deletes ? " New and untracked files among them will be deleted." : "";
+    return `Discard changes in ${targets.length} files? This cannot be undone.${note}\n\n${fileListPreview(targets)}`;
+  }
+  const file = targets[0];
+  const name = fileBasename(file.path);
+  if (file.untracked) {
+    return `Discard ${name}? This untracked file will be deleted.`;
+  }
+  if (file.staged && file.status === "Added") {
+    return `Discard ${name}? This new file will be deleted.`;
+  }
+  if (file.staged && file.status === "Renamed") {
+    return `Discard the rename of ${name}? It will go back to its original name and its staged edits will be lost.`;
+  }
+  return `Discard changes to ${name}? This cannot be undone.`;
+}
+
+async function discardFiles(targets: WorkingTreeFile[]) {
   const match = current.value;
-  if (!match) {
+  if (!match || !targets.length) {
     return;
   }
-  const name = fileBasename(file.path);
-  let prompt = `Discard changes to ${name}? This cannot be undone.`;
-  if (file.untracked) {
-    prompt = `Discard ${name}? This untracked file will be deleted.`;
-  } else if (file.staged && file.status === "Added") {
-    prompt = `Discard ${name}? This new file will be deleted.`;
-  } else if (file.staged && file.status === "Renamed") {
-    prompt = `Discard the rename of ${name}? It will go back to its original name and its staged edits will be lost.`;
-  }
-  const ok = await confirm(prompt, {
+  const ok = await confirm(discardPrompt(targets), {
     title: "Discard changes",
     kind: "warning",
     okLabel: "Discard",
@@ -2596,7 +2644,9 @@ async function discardFile(file: WorkingTreeFile) {
   }
   try {
     await runWorktreeMutation(() =>
-      api.discardFileChanges(match.repo.path, file.path, file.staged),
+      forEachFile(targets, (file) =>
+        api.discardFileChanges(match.repo.path, file.path, file.staged),
+      ),
     );
   } catch (err) {
     message.value = String(err);
@@ -2604,12 +2654,16 @@ async function discardFile(file: WorkingTreeFile) {
   }
 }
 
-async function deleteFile(file: WorkingTreeFile) {
+async function deleteFiles(targets: WorkingTreeFile[]) {
   const match = current.value;
-  if (!match) {
+  if (!match || !targets.length) {
     return;
   }
-  const ok = await confirm(`Delete ${fileBasename(file.path)}? This cannot be undone.`, {
+  const prompt =
+    targets.length === 1
+      ? `Delete ${fileBasename(targets[0].path)}? This cannot be undone.`
+      : `Delete ${targets.length} files? This cannot be undone.\n\n${fileListPreview(targets)}`;
+  const ok = await confirm(prompt, {
     title: "Delete file",
     kind: "warning",
     okLabel: "Delete",
@@ -2619,12 +2673,14 @@ async function deleteFile(file: WorkingTreeFile) {
     return;
   }
   try {
-    await runWorktreeMutation(async () => {
-      await api.deleteWorkingTreeFile(match.repo.path, file.path);
-      if (selectedFile.value?.path === file.path) {
-        closeDiff();
-      }
-    });
+    await runWorktreeMutation(() =>
+      forEachFile(targets, async (file) => {
+        await api.deleteWorkingTreeFile(match.repo.path, file.path);
+        if (selectedFile.value?.path === file.path) {
+          closeDiff();
+        }
+      }),
+    );
   } catch (err) {
     message.value = String(err);
     showToast(String(err), "error");
@@ -2911,7 +2967,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
             <button class="ghost tiny" type="button" @click="openInEditor(selectedFile)">
               {{ openEditorLabel }}
             </button>
-            <button class="ghost tiny stage" type="button" @click="stageFile(selectedFile)">
+            <button class="ghost tiny stage" type="button" @click="stageFiles([selectedFile])">
               Mark resolved
             </button>
           </template>
@@ -3012,18 +3068,18 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         :operation="operation"
         :has-draft="hasCommitDraft"
         @select="selectFile"
-        @stage="stageFile"
-        @unstage="unstageFile"
+        @stage="stageFiles"
+        @unstage="unstageFiles"
         @stage-all="stageAll"
         @unstage-all="unstageAll"
         @discard="discardAll"
         @stash="openStash"
-        @stash-file="stashFile"
-        @ignore="ignoreFile"
+        @stash-files="stashFiles"
+        @ignore="ignoreFiles"
         @reveal="revealFile"
         @copy-path="copyFilePath"
-        @discard-file="discardFile"
-        @delete-file="deleteFile"
+        @discard-files="discardFiles"
+        @delete-files="deleteFiles"
         @commit="openCommit"
         @open-editor="openInEditor"
       />
@@ -3151,7 +3207,17 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
       </button>
     </template>
   </Modal>
-  <Modal v-if="stashing" :title="stashFileTarget ? 'Stash file' : 'Stash changes'" @close="closeStash">
+  <Modal
+    v-if="stashing"
+    :title="
+      stashFileTargets.length > 1
+        ? `Stash ${stashFileTargets.length} files`
+        : stashFileTargets.length
+          ? 'Stash file'
+          : 'Stash changes'
+    "
+    @close="closeStash"
+  >
     <label class="modal-label">
       <span class="muted tiny">Message</span>
       <input
@@ -3166,8 +3232,11 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         @keydown.enter.prevent="stashChanges"
       />
     </label>
-    <p v-if="stashFileTarget" class="muted tiny">
-      Saves the changes to {{ stashFileTarget.path }}, then removes them from the working tree. Other files stay as they are.
+    <p v-if="stashFileTargets.length > 1" class="muted tiny">
+      Saves the changes to {{ stashFileTargets.length }} files in one stash, then removes them from the working tree. Other files stay as they are.
+    </p>
+    <p v-else-if="stashFileTargets.length" class="muted tiny">
+      Saves the changes to {{ stashFileTargets[0].path }}, then removes them from the working tree. Other files stay as they are.
     </p>
     <p v-else class="muted tiny">Saves staged, unstaged, and untracked files, then clears the working tree.</p>
     <template #actions>

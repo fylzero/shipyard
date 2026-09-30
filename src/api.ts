@@ -280,16 +280,16 @@ export function deleteWorkingTreeFile(path: string, file: string) {
   return invoke<void>("delete_working_tree_file", { path, file });
 }
 
-export function stageFile(path: string, file: string) {
-  return invoke<void>("stage_file", { path, file });
+export function stageFiles(path: string, files: string[]) {
+  return invoke<void>("stage_files", { path, files });
 }
 
 export function stageAll(path: string) {
   return invoke<void>("stage_all", { path });
 }
 
-export function unstageFile(path: string, file: string) {
-  return invoke<void>("unstage_file", { path, file });
+export function unstageFiles(path: string, files: string[]) {
+  return invoke<void>("unstage_files", { path, files });
 }
 
 export function unstageAll(path: string) {
@@ -485,8 +485,8 @@ export function stashPush(path: string, message: string) {
   return invoke<string>("stash_push", { path, message });
 }
 
-export function stashFile(path: string, file: string, message: string) {
-  return invoke<string>("stash_file", { path, file, message });
+export function stashFiles(path: string, files: string[], message: string) {
+  return invoke<string>("stash_files", { path, files, message });
 }
 
 export function stashApply(path: string, index: number) {
