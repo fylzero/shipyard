@@ -339,7 +339,10 @@ async function revealFile() {
             <input
               v-model="userName"
               type="text"
+              autocapitalize="off"
+              autocorrect="off"
               autocomplete="name"
+              spellcheck="false"
               :disabled="formLocked || loading"
             />
           </label>
@@ -354,7 +357,10 @@ async function revealFile() {
             <input
               v-model="userEmail"
               type="text"
+              autocapitalize="off"
+              autocorrect="off"
               autocomplete="email"
+              spellcheck="false"
               :disabled="formLocked || loading"
             />
           </label>
@@ -369,6 +375,9 @@ async function revealFile() {
             <input
               v-model="defaultBranch"
               type="text"
+              autocapitalize="off"
+              autocorrect="off"
+              autocomplete="off"
               spellcheck="false"
               :disabled="formLocked || loading"
               placeholder="main"
@@ -403,6 +412,9 @@ async function revealFile() {
             <input
               v-model="defaultRemote"
               type="text"
+              autocapitalize="off"
+              autocorrect="off"
+              autocomplete="off"
               spellcheck="false"
               :disabled="formLocked || loading"
               placeholder="origin"

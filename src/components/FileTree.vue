@@ -108,6 +108,10 @@ function onSearchKeydown(event: KeyboardEvent) {
             type="text"
             class="file-tree-query"
             placeholder="Filter files"
+            autocapitalize="off"
+            autocorrect="off"
+            autocomplete="off"
+            spellcheck="false"
             @keydown="onSearchKeydown"
           />
           <button

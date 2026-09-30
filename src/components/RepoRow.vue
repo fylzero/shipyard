@@ -173,6 +173,10 @@ async function saveEdit() {
         type="text"
         class="repo-label-input"
         placeholder="Label, e.g. code review"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         @click.stop
         @keydown.enter="saveEdit"
         @keydown.escape="cancelEdit"

@@ -3054,6 +3054,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="specifyBranch"
         type="text"
         placeholder="branch name"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         autofocus
         @keydown.enter="confirmPull"
       />
@@ -3083,6 +3087,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         type="text"
         :maxlength="COMMIT_TITLE_MAX"
         placeholder="Short summary of the change"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         @keydown.enter.prevent="commitChanges({ all: !stagedCount && commitAllAvailable })"
       />
     </label>
@@ -3092,6 +3100,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="commitDescription"
         rows="5"
         placeholder="Optional details"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
       />
     </label>
     <label v-if="lastCommit" class="radio-option">
@@ -3137,6 +3149,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="stashMessage"
         type="text"
         placeholder="Optional summary of this work"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         @keydown.enter.prevent="stashChanges"
       />
     </label>
@@ -3156,6 +3172,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="newTagName"
         type="text"
         placeholder="v1.0.0"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         @keydown.enter.prevent="createTag"
       />
     </label>
@@ -3165,6 +3185,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="newTagMessage"
         type="text"
         placeholder="Optional. Makes an annotated tag"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
       />
     </label>
     <label class="modal-label">
@@ -3173,6 +3197,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="newTagTarget"
         type="text"
         placeholder="Current commit (HEAD)"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         @keydown.enter.prevent="createTag"
       />
     </label>
@@ -3192,6 +3220,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="newBranchName"
         type="text"
         placeholder="feature/JIRA-123"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         @keydown.enter="createBranch"
       />
     </label>
@@ -3221,6 +3253,10 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="renameBranchName"
         type="text"
         placeholder="feature/JIRA-123"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         @keydown.enter="renameBranch"
       />
     </label>
@@ -3243,6 +3279,8 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="remoteFormName"
         type="text"
         placeholder="upstream"
+        autocapitalize="off"
+        autocorrect="off"
         autocomplete="off"
         spellcheck="false"
         @keydown.enter.prevent="submitRemoteForm"
@@ -3254,6 +3292,8 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-model="remoteFormUrl"
         type="text"
         placeholder="git@github.com:owner/repo.git"
+        autocapitalize="off"
+        autocorrect="off"
         autocomplete="off"
         spellcheck="false"
         @keydown.enter.prevent="submitRemoteForm"
@@ -3290,6 +3330,8 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         ref="checkoutLocalNameInput"
         v-model="checkoutLocalName"
         type="text"
+        autocapitalize="off"
+        autocorrect="off"
         autocomplete="off"
         spellcheck="false"
         @keydown.enter.prevent="confirmCheckoutNaming"

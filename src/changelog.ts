@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.9.1",
+    date: "September 30, 2026",
+    notes: [
+      "Text fields no longer capitalize the first letter as you type. Commit titles and descriptions, tag names and messages, branch names, stash messages, remotes, clone paths, and search fields keep the case you type.",
+      "Git name and email, group names, repo labels, and custom font names do the same.",
+    ],
+  },
+  {
     version: "1.9.0",
     date: "September 29, 2026",
     notes: [

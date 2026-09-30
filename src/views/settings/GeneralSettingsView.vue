@@ -289,6 +289,9 @@ async function resetFilesPaneWidth() {
                 type="text"
                 :value="diffCustomFont"
                 placeholder="Font family name"
+                autocapitalize="off"
+                autocorrect="off"
+                autocomplete="off"
                 spellcheck="false"
                 @change="onDiffCustomFont"
               />
@@ -400,6 +403,9 @@ async function resetFilesPaneWidth() {
                 type="text"
                 :value="terminalCustomFont"
                 placeholder="Font family name"
+                autocapitalize="off"
+                autocorrect="off"
+                autocomplete="off"
                 spellcheck="false"
                 @change="onTerminalCustomFont"
               />

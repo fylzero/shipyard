@@ -484,6 +484,10 @@ function onHeaderClick(event: MouseEvent) {
           v-model="name"
           type="text"
           placeholder="Group name"
+          autocapitalize="off"
+          autocorrect="off"
+          autocomplete="off"
+          spellcheck="false"
           @keydown.enter="finishRename"
           @keydown.escape="cancelRename"
         />
@@ -724,6 +728,10 @@ function onHeaderClick(event: MouseEvent) {
           v-model="specifyBranch"
           type="text"
           placeholder="branch name"
+          autocapitalize="off"
+          autocorrect="off"
+          autocomplete="off"
+          spellcheck="false"
           autofocus
           @keydown.enter="confirmPull"
         />
@@ -755,6 +763,10 @@ function onHeaderClick(event: MouseEvent) {
               v-model="checkoutTarget"
               type="text"
               placeholder="feature/JIRA-123"
+              autocapitalize="off"
+              autocorrect="off"
+              autocomplete="off"
+              spellcheck="false"
               autofocus
               @keydown.enter="checkoutAll"
             />
@@ -768,6 +780,10 @@ function onHeaderClick(event: MouseEvent) {
                 v-model="extraFallbacks[index]"
                 type="text"
                 placeholder="branch name"
+                autocapitalize="off"
+                autocorrect="off"
+                autocomplete="off"
+                spellcheck="false"
               />
             </div>
             <div class="fallback-editor-actions">

@@ -278,6 +278,8 @@ async function toggleBranches() {
               v-model="branchQuery"
               type="text"
               placeholder="Filter branches"
+              autocapitalize="off"
+              autocorrect="off"
               autocomplete="off"
               spellcheck="false"
               @keydown="onBranchSearchKeydown"

@@ -266,6 +266,10 @@ function removeFallback() {
         v-model="specifyBranch"
         type="text"
         placeholder="branch name"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
         autofocus
         @keydown.enter="confirmPull"
       />
@@ -297,6 +301,10 @@ function removeFallback() {
             v-model="checkoutTarget"
             type="text"
             placeholder="feature/JIRA-123"
+            autocapitalize="off"
+            autocorrect="off"
+            autocomplete="off"
+            spellcheck="false"
             autofocus
             @keydown.enter="confirmCheckout"
           />
@@ -310,6 +318,10 @@ function removeFallback() {
               v-model="extraFallbacks[index]"
               type="text"
               placeholder="branch name"
+              autocapitalize="off"
+              autocorrect="off"
+              autocomplete="off"
+              spellcheck="false"
             />
           </div>
           <div class="fallback-editor-actions">
