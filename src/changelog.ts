@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.10.1",
+    date: "September 30, 2026",
+    notes: [
+      "Check for Updates moved from Settings to the top-right of the Change Log. It shows Update to vX.Y.Z once a newer build is found.",
+      "The release you're running is marked Current in the Change Log.",
+    ],
+  },
+  {
     version: "1.10.0",
     date: "September 30, 2026",
     notes: [

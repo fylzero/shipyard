@@ -7,7 +7,6 @@ import {
 } from "../composables/useTabs";
 import GeneralSettingsView from "./settings/GeneralSettingsView.vue";
 import ScheduleSettingsView from "./settings/ScheduleSettingsView.vue";
-import UpdatesSettingsView from "./settings/UpdatesSettingsView.vue";
 import WindowSettingsView from "./settings/WindowSettingsView.vue";
 
 const GitSettingsView = defineAsyncComponent({
@@ -32,10 +31,6 @@ const JsonSettingsView = defineAsyncComponent({
 
 const { settingsSection, openSettings } = useTabs();
 
-const primarySections: { id: SettingsSection; label: string }[] = [
-  { id: "updates", label: "Updates" },
-];
-
 const preferenceSections: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
   { id: "git", label: "Git" },
@@ -52,23 +47,6 @@ const current = computed(() =>
 <template>
   <div class="settings-layout">
     <nav class="settings-nav" aria-label="Settings">
-      <button
-        v-for="item in primarySections"
-        :key="item.id"
-        class="settings-nav-item"
-        type="button"
-        :class="{ active: current === item.id }"
-        :aria-current="current === item.id ? 'page' : undefined"
-        @click="openSettings(item.id)"
-      >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 4v10" />
-          <path d="m8 10 4 4 4-4" />
-          <path d="M5 18h14" />
-        </svg>
-        {{ item.label }}
-      </button>
-      <div class="settings-nav-separator" role="separator" />
       <button
         v-for="item in preferenceSections"
         :key="item.id"
@@ -110,7 +88,6 @@ const current = computed(() =>
       <GitSettingsView v-if="current === 'git'" />
       <ScheduleSettingsView v-if="current === 'schedule'" />
       <WindowSettingsView v-if="current === 'window'" />
-      <UpdatesSettingsView v-if="current === 'updates'" />
       <JsonSettingsView v-if="current === 'json'" />
     </div>
   </div>

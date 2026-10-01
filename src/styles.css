@@ -672,12 +672,6 @@ button.toast:hover .toast-action {
   background: var(--bg-sidebar);
 }
 
-.settings-nav-separator {
-  height: 1px;
-  margin: 0.45rem 0.55rem;
-  background: var(--border);
-}
-
 .settings-nav-item {
   display: flex;
   align-items: center;
@@ -4186,6 +4180,16 @@ svg.file-tree-twist.open {
   font-size: 1.15rem;
   font-weight: 650;
   letter-spacing: 0.01em;
+}
+
+.changelog-current {
+  align-self: center;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .changelog-notes {
