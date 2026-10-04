@@ -16,6 +16,10 @@ const backdrop = useBackdropClose(() => emit("close"));
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") {
+    const target = event.target;
+    if (target instanceof Element && target.closest("[data-modal-escape='local']")) {
+      return;
+    }
     event.stopImmediatePropagation();
     emit("close");
   }

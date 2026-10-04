@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BranchList from "./BranchList.vue";
+import BranchSelect from "./BranchSelect.vue";
 import ChangesPanelTabs from "./ChangesPanelTabs.vue";
 import CommitFiles from "./CommitFiles.vue";
 import FileHistoryList from "./FileHistoryList.vue";
@@ -240,10 +241,6 @@ const canCreateBranch = computed(() => {
   }
   return Boolean(baseBranch.value.trim());
 });
-
-function baseBranchLabel(name: string) {
-  return name === checkedOutBranch.value ? `${name} (current)` : name;
-}
 const commitMenuHasMerge = computed(() => {
   const menu = commitMenu.value;
   if (!menu) {
@@ -268,6 +265,9 @@ const localBranchNames = computed(() => {
   }
   return branches.value;
 });
+const mergeTargetOptions = computed(() =>
+  localBranchNames.value.filter((name) => name !== mergeSource.value),
+);
 const mergeTargetHint = computed(() => {
   const raw = overview.value?.mergeTarget ?? preferredMergeTarget() ?? "";
   return raw.replace(/^origin\//, "").trim();
@@ -1289,8 +1289,8 @@ function closeRenameBranch() {
   renameBranchName.value = "";
 }
 
-function pickMergeTarget() {
-  const names = localBranchNames.value;
+function pickMergeTarget(exclude = "") {
+  const names = localBranchNames.value.filter((name) => name !== exclude);
   const preferred = [mergeTargetHint.value, "develop", "main", "master"];
   for (const name of preferred) {
     if (name && names.includes(name)) {
@@ -1325,6 +1325,12 @@ async function openMergeBranch(branch?: LocalBranch) {
   mergeSource.value = pickMergeSource(preferredSource, target);
   mergingBranch.value = true;
 }
+
+watch(mergeSource, (source) => {
+  if (source && source === mergeTarget.value) {
+    mergeTarget.value = pickMergeTarget(source);
+  }
+});
 
 function closeMergeBranch() {
   mergingBranch.value = false;
@@ -3385,15 +3391,16 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         @keydown.enter="createBranch"
       />
     </label>
-    <label v-if="!newBranchStart" class="modal-label">
+    <div v-if="!newBranchStart" class="modal-label">
       <span class="muted tiny">Base branch</span>
-      <select v-model="baseBranch" :disabled="!baseBranchOptions.length">
-        <option v-if="!baseBranchOptions.length" value="" disabled>No local branches</option>
-        <option v-for="item in baseBranchOptions" :key="item" :value="item">
-          {{ baseBranchLabel(item) }}
-        </option>
-      </select>
-    </label>
+      <BranchSelect
+        v-model="baseBranch"
+        label="Base branch"
+        :branches="baseBranchOptions"
+        :branch-tracking="branchTracking"
+        :current="checkedOutBranch"
+      />
+    </div>
     <p v-if="newBranchStartShort" class="muted tiny">Starts at {{ newBranchStartShort }}.</p>
     <p v-else class="muted tiny">The new branch starts at the tip of the base branch, then checks it out.</p>
     <template #actions>
@@ -3515,15 +3522,16 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
       Brings <code>{{ syncSourceLabel }}</code> into your local
       <code>{{ syncTarget || "…" }}</code>.
     </p>
-    <label class="modal-label">
+    <div class="modal-label">
       <span class="muted tiny">Into</span>
-      <select v-model="syncTarget" :disabled="!branches.length">
-        <option v-if="!branches.length" value="" disabled>No local branches</option>
-        <option v-for="name in branches" :key="`sync-${name}`" :value="name">
-          {{ baseBranchLabel(name) }}
-        </option>
-      </select>
-    </label>
+      <BranchSelect
+        v-model="syncTarget"
+        label="Into"
+        :branches="branches"
+        :branch-tracking="branchTracking"
+        :current="checkedOutBranch"
+      />
+    </div>
     <fieldset class="radio-list">
       <legend class="muted tiny">How</legend>
       <label class="radio-option">
@@ -3561,22 +3569,26 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
       Merges <code>{{ mergeSource || "…" }}</code> into <code>{{ mergeTarget || "…" }}</code>.
       Checkout switches to the target first if needed.
     </p>
-    <label class="modal-label">
+    <div class="modal-label">
       <span class="muted tiny">From</span>
-      <select v-model="mergeSource">
-        <option v-for="name in localBranchNames" :key="`from-${name}`" :value="name">
-          {{ name }}
-        </option>
-      </select>
-    </label>
-    <label class="modal-label">
+      <BranchSelect
+        v-model="mergeSource"
+        label="From"
+        :branches="localBranchNames"
+        :branch-tracking="branchTracking"
+        :current="checkedOutBranch"
+      />
+    </div>
+    <div class="modal-label">
       <span class="muted tiny">Into</span>
-      <select v-model="mergeTarget">
-        <option v-for="name in localBranchNames" :key="`into-${name}`" :value="name">
-          {{ name }}
-        </option>
-      </select>
-    </label>
+      <BranchSelect
+        v-model="mergeTarget"
+        label="Into"
+        :branches="mergeTargetOptions"
+        :branch-tracking="branchTracking"
+        :current="checkedOutBranch"
+      />
+    </div>
     <p class="muted tiny pull-hint">
       Conflicts appear in the files list so you can open them, mark them resolved, or abort.
     </p>
