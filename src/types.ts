@@ -16,6 +16,7 @@ export interface RepoGroup {
 }
 
 export type DiffMode = "inline" | "split";
+export type NotificationMode = "background" | "always" | "off";
 
 export const EDITOR_OPTIONS: { id: string; label: string; short?: string }[] = [
   { id: "system", label: "System default" },
@@ -63,6 +64,7 @@ export interface AppData {
   terminalFontFamily?: string;
   terminalFontSize?: number;
   editor?: string;
+  notifications?: NotificationMode;
   refreshActiveHours?: RefreshActiveHours;
   window?: WindowState;
 }

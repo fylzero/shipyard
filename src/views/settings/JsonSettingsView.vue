@@ -23,6 +23,7 @@ const {
   terminalFontFamily,
   terminalFontSize,
   editor,
+  notifications,
   windowState,
   replaceSettings,
   showToast,
@@ -204,6 +205,7 @@ watch(
     terminalFontFamily,
     terminalFontSize,
     editor,
+    notifications,
     windowState,
   ],
   () => {

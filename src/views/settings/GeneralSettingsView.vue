@@ -11,7 +11,8 @@ import {
   formatFontSize,
   isPresetFont,
 } from "../../fonts";
-import { EDITOR_OPTIONS, type DiffMode } from "../../types";
+import { EDITOR_OPTIONS, type DiffMode, type NotificationMode } from "../../types";
+import { NOTIFICATION_MODES } from "../../notifications";
 
 const FILES_PANE_MIN = 220;
 const FILES_PANE_MAX = 800;
@@ -36,6 +37,8 @@ const {
   saveTerminalFontSize,
   editor,
   saveEditor,
+  notifications,
+  saveNotifications,
   saveRefreshInterval,
   showToast,
 } = useApp();
@@ -196,6 +199,14 @@ async function onEditor(event: Event) {
   }
 }
 
+async function onNotifications(event: Event) {
+  try {
+    await saveNotifications((event.target as HTMLSelectElement).value as NotificationMode);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
 function onWidthInput(event: Event) {
   setFilesPaneWidth(Number((event.target as HTMLInputElement).value));
 }
@@ -241,6 +252,23 @@ async function resetFilesPaneWidth() {
               <option :value="300">5 minutes</option>
               <option :value="900">15 minutes</option>
               <option :value="1800">30 minutes</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>System notifications</h3>
+            <p class="muted tiny">
+              When to also send results to macOS Notification Center. In background only
+              notifies while Shipyard isn't the active app.
+            </p>
+          </div>
+          <label class="settings-control">
+            <span class="visually-hidden">System notifications</span>
+            <select :value="notifications" @change="onNotifications">
+              <option v-for="option in NOTIFICATION_MODES" :key="option.id" :value="option.id">
+                {{ option.label }}
+              </option>
             </select>
           </label>
         </div>

@@ -11,6 +11,7 @@ import type {
   FileBlame,
   GitConfig,
   LastCommit,
+  NotificationMode,
   RefreshActiveHours,
   RemoteEntry,
   RemoteOverview,
@@ -145,6 +146,10 @@ export function updateTerminalFontSize(fontSize: number) {
 
 export function updateEditor(editor: string) {
   return invoke<string>("update_editor", { editor });
+}
+
+export function updateNotifications(mode: NotificationMode) {
+  return invoke<NotificationMode>("update_notifications", { mode });
 }
 
 export function updateRefreshActiveHours(hours: RefreshActiveHours) {

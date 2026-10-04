@@ -1202,8 +1202,7 @@ async function checkoutBranch(branch: string) {
   message.value = "";
   await nextTick();
   try {
-    const result = await api.checkoutLocalBranch(match.repo.path, branch);
-    showToast(result);
+    await api.checkoutLocalBranch(match.repo.path, branch);
   } catch (err) {
     markOverviewCurrent(previous);
     if (previous) {

@@ -5,6 +5,7 @@ import { dashboardIds as orderDashboard } from "../dashboard";
 import type {
   AppData,
   DiffMode,
+  NotificationMode,
   RefreshActiveHours,
   RepoActionResult,
   RepoEntry,
@@ -29,6 +30,13 @@ import {
   normalizeRefreshActiveHours,
   resolvedRefreshHours,
 } from "../refreshHours";
+import {
+  ensureNotificationPermission,
+  prefersSystemNotification,
+  sanitizeNotificationMode,
+  sendSystemNotification,
+  windowFocused,
+} from "../notifications";
 
 const groups = ref<RepoGroup[]>([]);
 const standaloneRepos = ref<RepoEntry[]>([]);
@@ -55,6 +63,7 @@ const diffFontSize = ref(DEFAULT_DIFF_FONT_SIZE);
 const terminalFontFamily = ref(DEFAULT_CODE_FONT);
 const terminalFontSize = ref(DEFAULT_TERMINAL_FONT_SIZE);
 const editor = ref("system");
+const notifications = ref<NotificationMode>("background");
 const windowState = ref<WindowState | null>(null);
 const FILES_PANE_MIN = 220;
 const FILES_PANE_MAX = 800;
@@ -85,6 +94,9 @@ const pullCancelled = ref<Record<string, boolean>>({});
 const checkoutProgress = ref<Record<string, string>>({});
 const checkoutCancelled = ref<Record<string, boolean>>({});
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
+let toastRemaining = 0;
+let toastStartedAt = 0;
+let toastHovered = false;
 let autoRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 let autoRefreshStarted = false;
@@ -98,6 +110,36 @@ function repoWatchKey(path: string) {
 }
 
 const statusById = computed(() => statuses.value);
+
+const TOAST_RESUME_MIN_MS = 1200;
+
+function startToastTimer() {
+  if (toastTimer || !toastMessage.value || toastHovered || !windowFocused.value) {
+    return;
+  }
+  toastStartedAt = Date.now();
+  toastTimer = setTimeout(() => {
+    toastMessage.value = "";
+    toastTimer = null;
+  }, toastRemaining);
+}
+
+function stopToastTimer() {
+  if (!toastTimer) {
+    return;
+  }
+  clearTimeout(toastTimer);
+  toastTimer = null;
+  toastRemaining = Math.max(TOAST_RESUME_MIN_MS, toastRemaining - (Date.now() - toastStartedAt));
+}
+
+watch(windowFocused, (focused) => {
+  if (focused) {
+    startToastTimer();
+  } else {
+    stopToastTimer();
+  }
+});
 
 export function useApp() {
   async function load() {
@@ -132,6 +174,7 @@ export function useApp() {
       DEFAULT_TERMINAL_FONT_SIZE,
     );
     editor.value = data.editor?.trim() || "system";
+    notifications.value = sanitizeNotificationMode(data.notifications);
     windowState.value = data.window ?? null;
   }
 
@@ -266,25 +309,51 @@ export function useApp() {
       clearTimeout(toastTimer);
       toastTimer = null;
     }
+    toastHovered = false;
     toastMessage.value = "";
   }
 
+  function showInAppToast(message: string, kind: "success" | "error", hasDetails: boolean) {
+    dismissToast();
+    toastKind.value = kind;
+    toastHasDetails.value = hasDetails;
+    toastMessage.value = message;
+    toastRemaining = kind === "error" || hasDetails ? 5600 : 3200;
+    startToastTimer();
+  }
+
+  /**
+   * In the background mode the in-app toast still appears, but its timer waits
+   * for the window to regain focus so it is there when you come back.
+   */
   function showToast(
     message: string,
     kind: "success" | "error" = "success",
     hasDetails = false,
   ) {
-    dismissToast();
-    toastKind.value = kind;
-    toastHasDetails.value = hasDetails;
-    toastMessage.value = message;
-    toastTimer = setTimeout(
-      () => {
-        toastMessage.value = "";
-        toastTimer = null;
-      },
-      kind === "error" || hasDetails ? 5600 : 3200,
-    );
+    if (!message || !prefersSystemNotification(notifications.value)) {
+      showInAppToast(message, kind, hasDetails);
+      return;
+    }
+    const mode = notifications.value;
+    if (mode === "background" || hasDetails) {
+      showInAppToast(message, kind, hasDetails);
+    }
+    void sendSystemNotification(message, kind).then((sent) => {
+      if (!sent && mode === "always" && !hasDetails) {
+        showInAppToast(message, kind, hasDetails);
+      }
+    });
+  }
+
+  function pauseToast() {
+    toastHovered = true;
+    stopToastTimer();
+  }
+
+  function resumeToast() {
+    toastHovered = false;
+    startToastTimer();
   }
 
   function dismissOutput() {
@@ -637,6 +706,13 @@ export function useApp() {
     terminalFontFamily.value = await api.updateTerminalFontFamily(sanitizeFontFamily(family));
   }
 
+  async function saveNotifications(next: NotificationMode) {
+    notifications.value = await api.updateNotifications(next);
+    if (notifications.value !== "off") {
+      void ensureNotificationPermission();
+    }
+  }
+
   async function saveEditor(next: string) {
     editor.value = await api.updateEditor(next);
   }
@@ -959,7 +1035,6 @@ export function useApp() {
     error.value = "";
     try {
       applyStatus(await api.refreshRepo(STANDALONE_GROUP_ID, repoId, true));
-      showToast(`Fetched ${repoDisplayName(repoId, repo.path)}.`);
     } catch (err) {
       const text = String(err);
       error.value = text;
@@ -1004,7 +1079,6 @@ export function useApp() {
       return;
     }
     if (statuses.value[repoId]?.branch === branch) {
-      showToast(`Already on ${branch}`);
       return;
     }
     markReposRefreshing([repoId]);
@@ -1012,7 +1086,9 @@ export function useApp() {
     try {
       const result = await api.checkoutRepo(STANDALONE_GROUP_ID, repoId, branch, fallbacks);
       applyStatus(await api.refreshRepo(STANDALONE_GROUP_ID, repoId, false));
-      showToast(result.message, result.ok ? "success" : "error");
+      if (!result.ok) {
+        showToast(result.message, "error");
+      }
     } catch (err) {
       const text = String(err);
       error.value = text;
@@ -1424,6 +1500,8 @@ export function useApp() {
     saveTerminalFontSize,
     editor,
     saveEditor,
+    notifications,
+    saveNotifications,
     windowState,
     saveWindowState,
     replaceSettings,
@@ -1440,6 +1518,8 @@ export function useApp() {
     actionOutputOpen,
     showToast,
     dismissToast,
+    pauseToast,
+    resumeToast,
     presentActionResults,
     dismissOutput,
     openOutput,

@@ -5,7 +5,8 @@ use tauri::{AppHandle, State};
 
 use crate::git;
 use crate::models::{
-    sanitize_editor, sanitize_font_family, sanitize_font_size, sanitize_refresh_active_hours,
+    sanitize_editor, sanitize_font_family, sanitize_font_size, sanitize_notifications,
+    sanitize_refresh_active_hours,
     AppData, BranchOverview, BranchTracking, CommitFile, CommitNode, DeleteMergedResult, FileBlame,
     GitConfig, LastCommit, RefreshActiveHours, RemoteEntry, RemoteOverview, RepoActionResult,
     RepoEntry, RepoFile, RepoGroup, RepoStatus, StashEntry, TagEntry, WorkingTreeFile,
@@ -357,6 +358,19 @@ pub fn update_editor(
 }
 
 #[tauri::command]
+pub fn update_notifications(
+    app: AppHandle,
+    state: State<AppState>,
+    mode: String,
+) -> Result<String, String> {
+    let mode = sanitize_notifications(&mode);
+    let mut data = state.data.lock().map_err(|err| err.to_string())?;
+    data.notifications = mode.clone();
+    persist_data(&app, &data)?;
+    Ok(mode)
+}
+
+#[tauri::command]
 pub fn update_refresh_active_hours(
     app: AppHandle,
     state: State<AppState>,
@@ -403,6 +417,7 @@ fn sanitize_app_data(mut data: AppData) -> Result<AppData, String> {
     data.terminal_font_family = sanitize_font_family(&data.terminal_font_family);
     data.terminal_font_size = sanitize_font_size(data.terminal_font_size, 14.0);
     data.editor = sanitize_editor(&data.editor);
+    data.notifications = sanitize_notifications(&data.notifications);
     data.refresh_active_hours = sanitize_refresh_active_hours(data.refresh_active_hours);
     if let Some(window) = &mut data.window {
         window.width = window.width.max(crate::models::MIN_WINDOW_WIDTH);

@@ -19,6 +19,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .menu(|handle| menu::build(handle))
@@ -63,6 +64,7 @@ pub fn run() {
             commands::update_terminal_font_family,
             commands::update_terminal_font_size,
             commands::update_editor,
+            commands::update_notifications,
             commands::update_refresh_active_hours,
             window_state::get_window_state,
             window_state::update_window_state,

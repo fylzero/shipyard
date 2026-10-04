@@ -20,6 +20,18 @@ fn default_editor() -> String {
     "system".into()
 }
 
+fn default_notifications() -> String {
+    "background".into()
+}
+
+pub fn sanitize_notifications(value: &str) -> String {
+    match value.trim() {
+        "always" => "always".into(),
+        "off" => "off".into(),
+        _ => default_notifications(),
+    }
+}
+
 fn default_code_font() -> String {
     "jetbrains".into()
 }
@@ -216,6 +228,9 @@ pub struct AppData {
     pub terminal_font_size: f64,
     #[serde(default = "default_editor")]
     pub editor: String,
+    /// When to use system notifications: "background", "always", or "off".
+    #[serde(default = "default_notifications")]
+    pub notifications: String,
     #[serde(default)]
     pub refresh_active_hours: RefreshActiveHours,
     #[serde(default)]
@@ -237,6 +252,7 @@ impl Default for AppData {
             terminal_font_family: default_code_font(),
             terminal_font_size: default_terminal_font_size(),
             editor: default_editor(),
+            notifications: default_notifications(),
             refresh_active_hours: RefreshActiveHours::default(),
             window: None,
         }
@@ -299,6 +315,7 @@ mod tests {
             terminal_font_family: "jetbrains".into(),
             terminal_font_size: 14.0,
             editor: "system".into(),
+            notifications: "background".into(),
             refresh_active_hours: RefreshActiveHours::default(),
             window: None,
             repos: Vec::new(),
@@ -328,6 +345,7 @@ mod tests {
         assert_eq!(parsed.refresh_active_hours.start, "08:00");
         assert_eq!(parsed.refresh_active_hours.end, "18:00");
         assert_eq!(parsed.editor, "system");
+        assert_eq!(parsed.notifications, "background");
         assert_eq!(parsed.diff_font_family, "jetbrains");
         assert_eq!(parsed.diff_font_size, 13.0);
         assert_eq!(parsed.terminal_font_family, "jetbrains");
@@ -358,6 +376,14 @@ mod tests {
         assert_eq!(sanitize_editor("BBEdit"), "BBEdit");
         assert_eq!(sanitize_editor(""), "system");
         assert_eq!(sanitize_editor("/Applications/Cursor.app"), "system");
+    }
+
+    #[test]
+    fn sanitizes_notifications_mode() {
+        assert_eq!(sanitize_notifications("always"), "always");
+        assert_eq!(sanitize_notifications(" off "), "off");
+        assert_eq!(sanitize_notifications("background"), "background");
+        assert_eq!(sanitize_notifications("loud"), "background");
     }
 
     #[test]

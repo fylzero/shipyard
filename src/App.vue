@@ -25,6 +25,7 @@ const SettingsView = defineAsyncComponent({
 const ChangelogView = defineAsyncComponent(() => import("./views/ChangelogView.vue"));
 import { useApp } from "./composables/useApp";
 import { resolveFontStack } from "./fonts";
+import { watchWindowFocus } from "./notifications";
 import { useUpdater } from "./composables/useUpdater";
 import {
   CHANGELOG_TAB_ID,
@@ -45,6 +46,8 @@ const {
   actionOutput,
   actionOutputOpen,
   dismissToast,
+  pauseToast,
+  resumeToast,
   dismissOutput,
   openOutput,
   showToast,
@@ -83,10 +86,8 @@ const {
   dismissPrompt,
 } = useUpdater();
 
-function onToastDismiss() {
-  if ((toastKind.value === "error" || toastHasDetails.value) && !actionOutputOpen.value) {
-    openOutput();
-  }
+function onToastDetails() {
+  openOutput();
   dismissToast();
 }
 const GITHUB_URL = "https://github.com/fylzero/shipyard";
@@ -147,6 +148,7 @@ function onWindowKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
+  watchWindowFocus();
   void load();
   void getVersion()
     .then((value) => {
@@ -266,7 +268,10 @@ watch(statuses, () => {
         :message="toastMessage"
         :kind="toastKind"
         :has-details="toastHasDetails"
-        @dismiss="onToastDismiss"
+        @dismiss="dismissToast"
+        @details="onToastDetails"
+        @pause="pauseToast"
+        @resume="resumeToast"
       />
     </Transition>
     <OutputModal

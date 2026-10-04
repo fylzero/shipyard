@@ -14,6 +14,9 @@ export const CHANGELOG: ChangelogRelease[] = [
       "Merge into current branch opens Merge local branch with the branch you right-clicked as From and the branch you're on as Into.",
       "Shift-F10 opens the menu for the highlighted branch. Escape closes it and leaves the branch dropdown open.",
       "The branch pickers in Merge local branch, Sync, and New branch are now searchable dropdowns like the one in the toolbar. They show the Current, Local, and ahead or behind badges, and you can start typing to filter.",
+      "Toasts moved to the bottom-left corner, above the status bar, so they no longer cover the toolbar. Hovering over a toast keeps it open. Clicking the toast itself no longer does anything, so it can't catch a click meant for a button underneath. Use View details or the close button instead.",
+      "Checking out a branch, fetching a single repo, and picking the branch you're already on no longer show a toast, since the branch name and status already update. Failures still show one.",
+      "New System notifications setting in General. The default, In background, sends results to macOS Notification Center when Shipyard isn't the active app, and the toast waits until you switch back. You can also choose Always or Never.",
     ],
   },
   {
