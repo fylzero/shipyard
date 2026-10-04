@@ -72,7 +72,7 @@ pub fn run() {
             commands::add_repo,
             commands::add_standalone_repo,
             commands::clone_standalone_repo,
-            commands::update_standalone_repo,
+            commands::update_repo,
             commands::remove_standalone_repo,
             commands::standalone_status,
             commands::remove_repo,

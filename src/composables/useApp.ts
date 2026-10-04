@@ -888,9 +888,17 @@ export function useApp() {
     );
   }
 
-  async function updateStandaloneRepo(repoId: string, label?: string, headerColor?: string) {
-    const repo = await api.updateStandaloneRepo(repoId, label, headerColor);
+  async function updateRepo(repoId: string, label?: string, headerColor?: string) {
+    const repo = await api.updateRepo(repoId, label, headerColor);
     patchStandaloneRepo(repoId, repo);
+    groups.value = groups.value.map((group) =>
+      group.repos.some((entry) => entry.id === repoId)
+        ? {
+            ...group,
+            repos: group.repos.map((entry) => (entry.id === repoId ? { ...entry, ...repo } : entry)),
+          }
+        : group,
+    );
     return repo;
   }
 
@@ -1559,7 +1567,7 @@ export function useApp() {
     addRepo,
     addStandaloneRepo,
     cloneStandaloneRepo,
-    updateStandaloneRepo,
+    updateRepo,
     removeStandaloneRepo,
     removeRepo,
     reorderDashboard,

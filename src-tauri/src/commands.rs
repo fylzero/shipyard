@@ -691,7 +691,7 @@ fn register_standalone_repo(
 }
 
 #[tauri::command]
-pub fn update_standalone_repo(
+pub fn update_repo(
     app: AppHandle,
     state: State<AppState>,
     repo_id: String,
@@ -700,9 +700,11 @@ pub fn update_standalone_repo(
 ) -> Result<RepoEntry, String> {
     let mut data = state.data.lock().map_err(|err| err.to_string())?;
     let updated = {
+        let data = &mut *data;
         let repo = data
             .repos
             .iter_mut()
+            .chain(data.groups.iter_mut().flat_map(|group| group.repos.iter_mut()))
             .find(|repo| repo.id == repo_id)
             .ok_or_else(|| "Repository not found".to_string())?;
         if let Some(label) = label {

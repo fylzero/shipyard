@@ -17,6 +17,7 @@ export const CHANGELOG: ChangelogRelease[] = [
       "Toasts moved to the bottom-left corner, above the status bar, so they no longer cover the toolbar. Hovering over a toast keeps it open. Clicking the toast itself no longer does anything, so it can't catch a click meant for a button underneath. Use View details or the close button instead.",
       "Checking out a branch, fetching a single repo, and picking the branch you're already on no longer show a toast, since the branch name and status already update. Failures still show one.",
       "New System notifications setting in General. The default, In background, sends results to macOS Notification Center when Shipyard isn't the active app, and the toast waits until you switch back. You can also choose Always or Never.",
+      "Repos inside a group now have Edit repository in their row menu, so you can give them a label. Their color still comes from the group.",
     ],
   },
   {

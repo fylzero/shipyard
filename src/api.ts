@@ -76,12 +76,12 @@ export function cloneStandaloneRepo(url: string, parent: string, name: string) {
   return invoke<RepoEntry>("clone_standalone_repo", { url, parent, name });
 }
 
-export function updateStandaloneRepo(
+export function updateRepo(
   repoId: string,
   label?: string,
   headerColor?: string,
 ) {
-  return invoke<RepoEntry>("update_standalone_repo", {
+  return invoke<RepoEntry>("update_repo", {
     repoId,
     label: label ?? null,
     headerColor: headerColor ?? null,

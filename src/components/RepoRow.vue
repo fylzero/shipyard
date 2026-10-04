@@ -29,7 +29,7 @@ const emit = defineEmits<{
   reorderStart: [event: PointerEvent, repoId: string];
 }>();
 
-const { statuses, isRepoRefreshing, updateStandaloneRepo, showToast } = useApp();
+const { statuses, isRepoRefreshing, updateRepo, showToast } = useApp();
 const { activeId, hasTab, openRepo, openRepos } = useTabs();
 const { isOpen: menuOpen, toggle: toggleMenu, close: closeMenu } = useOverflowMenu(
   () => `repo:${props.repo.id}`,
@@ -121,7 +121,11 @@ function onHeaderColor(event: Event) {
 }
 
 async function saveEdit() {
-  await updateStandaloneRepo(props.repo.id, labelDraft.value.trim(), colorDraft.value);
+  await updateRepo(
+    props.repo.id,
+    labelDraft.value.trim(),
+    props.flush ? colorDraft.value : undefined,
+  );
   editing.value = false;
 }
 </script>
@@ -181,7 +185,7 @@ async function saveEdit() {
         @keydown.enter="saveEdit"
         @keydown.escape="cancelEdit"
       />
-      <label v-if="editing" class="color-picker" @click.stop>
+      <label v-if="editing && flush" class="color-picker" @click.stop>
         <span class="color-picker-label">Color</span>
         <span class="color-picker-swatch" aria-hidden="true">
           <input type="color" :value="colorDraft" @input="onHeaderColor" />
@@ -288,7 +292,6 @@ async function saveEdit() {
           Open in Finder
         </button>
         <button
-          v-if="flush"
           class="overflow-menu-item"
           type="button"
           role="menuitem"
