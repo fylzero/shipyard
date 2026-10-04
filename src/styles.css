@@ -2395,6 +2395,15 @@ button.link-button:hover:not(:disabled) {
   color: var(--bad);
 }
 
+.branch-context-menu {
+  min-width: 12rem;
+}
+
+.branch-context-menu .context-menu-item:focus-visible {
+  outline: none;
+  background: var(--bg-hover);
+}
+
 .context-menu-item.has-sub {
   padding-right: 0.4rem;
 }

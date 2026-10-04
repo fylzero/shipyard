@@ -6,6 +6,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.11.0",
+    date: "October 3, 2026",
+    notes: [
+      "Right-click a branch in the branch dropdown for Pull and Merge into current branch.",
+      "Pull shows when the branch is behind its remote. On a branch you don't have checked out, it fetches and fast-forwards the branch without switching to it. If that branch also has local commits, Pull is turned off and explains why.",
+      "Merge into current branch opens Merge local branch with the branch you right-clicked as From and the branch you're on as Into.",
+      "Shift-F10 opens the menu for the highlighted branch. Escape closes it and leaves the branch dropdown open.",
+      "The branch pickers in Merge local branch, Sync, and New branch are now searchable dropdowns like the one in the toolbar. They show the Current, Local, and ahead or behind badges, and you can start typing to filter.",
+    ],
+  },
+  {
     version: "1.10.1",
     date: "September 30, 2026",
     notes: [

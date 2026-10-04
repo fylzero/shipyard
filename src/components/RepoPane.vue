@@ -1326,6 +1326,50 @@ async function openMergeBranch(branch?: LocalBranch) {
   mergingBranch.value = true;
 }
 
+function openMergeIntoCurrent(source: string) {
+  const target = checkedOutBranch.value;
+  if (actionBusy.value || !target || source === target) {
+    return;
+  }
+  mergeTarget.value = target;
+  mergeSource.value = source;
+  mergingBranch.value = true;
+}
+
+async function pullLocalBranch(name: string) {
+  const match = current.value;
+  if (!match || actionBusy.value) {
+    return;
+  }
+  if (name === checkedOutBranch.value) {
+    await runPull();
+    return;
+  }
+  const upstream = branchTracking.value.find((item) => item.name === name)?.upstream ?? "";
+  const path = match.repo.path;
+  if (!remotes.value.length) {
+    await refreshRemoteList(path);
+  }
+  // Remote names may contain slashes, so match the longest known remote prefix.
+  const remote = remotes.value
+    .map((entry) => entry.name)
+    .filter((entry) => upstream.startsWith(`${entry}/`))
+    .sort((left, right) => right.length - left.length)[0];
+  if (!remote) {
+    showToast(`Couldn't tell which remote ${name} tracks.`, "error");
+    return;
+  }
+  const remoteBranch = upstream.slice(remote.length + 1);
+  await runRepoAction(
+    "Pulling…",
+    async () => {
+      await api.fetchNamedRemote(path, remote);
+      return api.mergeRemoteBranch(path, remote, remoteBranch, name, false);
+    },
+    name,
+  );
+}
+
 watch(mergeSource, (source) => {
   if (source && source === mergeTarget.value) {
     mergeTarget.value = pickMergeTarget(source);
@@ -2909,6 +2953,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         :busy="actionBusy"
         :busy-label="actionLabel || (loading ? 'Loading…' : '')"
         :busy-branch="actionBranch"
+        :checked-out-branch="checkedOutBranch"
         @fetch="fetchRepo"
         @pull="pullRepo"
         @pull-options="openPullOptions"
@@ -2917,6 +2962,8 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         @checkout="checkoutBranch"
         @create="openCreateBranch"
         @merge="openMergeBranch()"
+        @pull-branch="pullLocalBranch"
+        @merge-into-current="openMergeIntoCurrent"
         @refresh-branches="refreshBranches"
       />
       <RepoViewTabs

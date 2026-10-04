@@ -14,6 +14,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [branch: string];
   close: [];
+  branchMenu: [branch: string, x: number, y: number];
 }>();
 
 const query = ref(props.initialQuery ?? "");
@@ -82,8 +83,33 @@ function onHover(index: number) {
   activeIndex.value = index;
 }
 
+function onBranchContextMenu(event: MouseEvent, index: number) {
+  event.preventDefault();
+  const item = filteredItems.value[index];
+  if (!item) {
+    return;
+  }
+  onHover(index);
+  emit("branchMenu", item.name, event.clientX, event.clientY);
+}
+
+function openActiveBranchMenu() {
+  const item = filteredItems.value[activeIndex.value];
+  const row = listEl.value?.querySelector<HTMLElement>(`[data-branch-index="${activeIndex.value}"]`);
+  if (!item || !row) {
+    return;
+  }
+  const rect = row.getBoundingClientRect();
+  emit("branchMenu", item.name, rect.left + 16, rect.bottom);
+}
+
 function onKeydown(event: KeyboardEvent) {
   const list = filteredItems.value;
+  if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) {
+    event.preventDefault();
+    openActiveBranchMenu();
+    return;
+  }
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
     if (!list.length) {
@@ -170,7 +196,7 @@ defineExpose({
         </svg>
       </button>
     </label>
-    <div ref="listEl" class="branch-menu-list">
+    <div ref="listEl" class="branch-menu-list" @contextmenu.prevent>
       <p v-if="!branches.length" class="muted tiny empty-branches">
         {{ emptyText ?? "No local branches." }}
       </p>
@@ -192,6 +218,7 @@ defineExpose({
         @mousedown.prevent
         @mouseenter="onHover(index)"
         @click="emit('select', item.name)"
+        @contextmenu="onBranchContextMenu($event, index)"
       >
         <span class="branch-menu-name">{{ item.name }}</span>
         <span v-if="current && item.name === current" class="branch-pill">Current</span>

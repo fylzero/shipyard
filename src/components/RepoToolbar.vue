@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
 import BranchPicker from "./BranchPicker.vue";
 import SplitAction from "./SplitAction.vue";
@@ -17,6 +18,7 @@ const props = defineProps<{
   busy: boolean;
   busyLabel: string;
   busyBranch?: string;
+  checkedOutBranch?: string;
 }>();
 
 const emit = defineEmits<{
@@ -28,12 +30,21 @@ const emit = defineEmits<{
   checkout: [branch: string];
   create: [];
   merge: [];
+  pullBranch: [branch: string];
+  mergeIntoCurrent: [branch: string];
   refreshBranches: [];
 }>();
 
 const { statuses } = useApp();
 const { isOpen, toggle, close } = useOverflowMenu(() => `branch-${props.repoId}`);
 const branchMenuEl = ref<HTMLElement | null>(null);
+const pickerRef = ref<InstanceType<typeof BranchPicker> | null>(null);
+const branchActions = ref<{ branch: string; x: number; y: number } | null>(null);
+
+const branchActionsTracking = computed(() => {
+  const name = branchActions.value?.branch;
+  return props.branchTracking?.find((item) => item.name === name);
+});
 
 const currentBranch = computed(
   () => statuses.value[props.repoId]?.branch || props.branch,
@@ -68,8 +79,40 @@ function selectBranch(branch: string) {
   emit("checkout", branch);
 }
 
+function openBranchActions(branch: string, x: number, y: number) {
+  const tracking = props.branchTracking?.find((item) => item.name === branch);
+  const canPull = Boolean(tracking?.upstream) && (tracking?.behind ?? 0) > 0;
+  const checkedOut = props.checkedOutBranch ?? "";
+  const canMerge = Boolean(checkedOut) && branch !== checkedOut;
+  branchActions.value = canPull || canMerge ? { branch, x, y } : null;
+}
+
+function closeBranchActions() {
+  branchActions.value = null;
+  pickerRef.value?.focus();
+}
+
+function pullFromMenu() {
+  const branch = branchActions.value?.branch;
+  branchActions.value = null;
+  close();
+  if (branch) {
+    emit("pullBranch", branch);
+  }
+}
+
+function mergeFromMenu() {
+  const branch = branchActions.value?.branch;
+  branchActions.value = null;
+  close();
+  if (branch) {
+    emit("mergeIntoCurrent", branch);
+  }
+}
+
 watch(isOpen, async (open) => {
   if (!open) {
+    branchActions.value = null;
     return;
   }
   await nextTick();
@@ -151,13 +194,29 @@ async function toggleBranches() {
           </button>
           <div class="context-menu-sep" />
           <BranchPicker
+            ref="pickerRef"
             :branches="branches"
             :branch-tracking="branchTracking"
             :selected="branch"
             @select="selectBranch"
             @close="close"
+            @branch-menu="openBranchActions"
           />
         </div>
+        <BranchContextMenu
+          v-if="isOpen && branchActions"
+          :branch="branchActions.branch"
+          :current="checkedOutBranch ?? ''"
+          :behind="branchActionsTracking?.behind ?? 0"
+          :ahead="branchActionsTracking?.ahead ?? 0"
+          :upstream="branchActionsTracking?.upstream ?? ''"
+          :x="branchActions.x"
+          :y="branchActions.y"
+          :busy="busy"
+          @pull="pullFromMenu"
+          @merge-into-current="mergeFromMenu"
+          @close="closeBranchActions"
+        />
       </div>
       <span class="repo-path" :title="path">{{ path }}</span>
       <span v-if="busyLabel" class="action-progress repo-toolbar-progress">
