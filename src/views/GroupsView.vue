@@ -335,16 +335,16 @@ async function cloneRepo() {
       <div class="groups-display">
         <div class="groups-toolbar">
           <div class="toolbar-start">
+            <button class="primary" type="button" @click="pickStandaloneRepo">Add repository</button>
+            <button class="ghost" type="button" @click="openClone">Clone repository</button>
             <button
-              class="primary"
+              class="ghost"
               type="button"
               :disabled="creating"
               @click="startCreate"
             >
               New group
             </button>
-            <button class="ghost" type="button" @click="pickStandaloneRepo">Add repository</button>
-            <button class="ghost" type="button" @click="openClone">Clone repository</button>
           </div>
           <div class="toolbar-end">
             <button
