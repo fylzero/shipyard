@@ -121,6 +121,7 @@ pub fn run() {
             commands::cherry_pick_commits,
             commands::revert_commits,
             commands::commit_remote_url,
+            commands::branch_pull_request_url,
             commands::merge_local_branch,
             commands::list_remotes,
             commands::fetch_named_remote,

@@ -1982,6 +1982,63 @@ pub fn commit_remote_url(git: &Path, repo: &Path, hash: &str) -> Result<String, 
     commit_browse_url(&browse, &hash)
 }
 
+fn encode_url_component(value: &str, keep_slash: bool) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric()
+            || matches!(byte, b'-' | b'.' | b'_' | b'~')
+            || (keep_slash && byte == b'/')
+        {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+
+pub fn pull_request_browse_url(browse: &str, branch: &str) -> Result<String, String> {
+    validate_ref(branch)?;
+    let browse = browse.trim().trim_end_matches('/');
+    if browse.is_empty() {
+        return Err("This repository has no origin remote.".into());
+    }
+    let host = host_from_browse_url(browse);
+    let path = if host.contains("gitlab.") || host.ends_with("gitlab.com") {
+        format!(
+            "/-/merge_requests/new?merge_request%5Bsource_branch%5D={}",
+            encode_url_component(branch, false)
+        )
+    } else if host.contains("bitbucket.") || host.ends_with("bitbucket.org") {
+        format!("/pull-requests/new?source={}", encode_url_component(branch, false))
+    } else {
+        format!("/compare/{}?expand=1", encode_url_component(branch, true))
+    };
+    Ok(format!("{browse}{path}"))
+}
+
+pub fn branch_pull_request_url(git: &Path, repo: &Path, branch: &str) -> Result<String, String> {
+    validate_ref(branch)?;
+    let full = format!("refs/heads/{branch}");
+    let output = run_git_quiet(git, repo, &["for-each-ref", "--format=%(upstream)", &full])?;
+    let upstream = if output.success { output.stdout.trim() } else { "" };
+    let remote_branch = if upstream.is_empty() {
+        let origin_ref = format!("refs/remotes/origin/{branch}");
+        let exists = run_git_quiet(git, repo, &["show-ref", "--verify", "--quiet", &origin_ref])?;
+        if !exists.success {
+            return Err(format!("Push {branch} before creating a pull request."));
+        }
+        branch
+    } else {
+        upstream
+            .strip_prefix("refs/remotes/origin/")
+            .filter(|name| !name.is_empty())
+            .ok_or_else(|| format!("{branch} doesn't track a branch on origin."))?
+    };
+    let browse = repo_remote_browse_url(git, repo)?;
+    pull_request_browse_url(&browse, remote_branch)
+}
+
 pub fn merge_local_branch(
     git: &Path,
     repo: &Path,
@@ -6671,6 +6728,60 @@ filename README.md
             commit_remote_url(&git_bin(), &repo, &hash).unwrap(),
             format!("https://github.com/owner/repo/commit/{hash}")
         );
+    }
+
+    #[test]
+    fn pull_request_browse_url_uses_each_host_new_pr_page() {
+        assert_eq!(
+            pull_request_browse_url("https://github.com/owner/repo", "feature/login").unwrap(),
+            "https://github.com/owner/repo/compare/feature/login?expand=1"
+        );
+        assert_eq!(
+            pull_request_browse_url("https://gitlab.com/group/sub/repo", "feature/login").unwrap(),
+            "https://gitlab.com/group/sub/repo/-/merge_requests/new?merge_request%5Bsource_branch%5D=feature%2Flogin"
+        );
+        assert_eq!(
+            pull_request_browse_url("https://bitbucket.org/owner/repo", "feature/login").unwrap(),
+            "https://bitbucket.org/owner/repo/pull-requests/new?source=feature%2Flogin"
+        );
+        assert_eq!(
+            pull_request_browse_url("https://github.com/owner/repo", "fix+more").unwrap(),
+            "https://github.com/owner/repo/compare/fix%2Bmore?expand=1"
+        );
+        assert!(pull_request_browse_url("", "feature").is_err());
+        assert!(pull_request_browse_url("https://github.com/owner/repo", "").is_err());
+    }
+
+    #[test]
+    fn branch_pull_request_url_requires_origin_upstream() {
+        let repo = init_repo();
+        git(
+            &repo,
+            &["remote", "add", "origin", "git@github.com:owner/repo.git"],
+        );
+        let err = branch_pull_request_url(&git_bin(), &repo, "develop").unwrap_err();
+        assert!(err.contains("Push develop"), "{err}");
+
+        git(&repo, &["update-ref", "refs/remotes/origin/develop", "HEAD"]);
+        assert_eq!(
+            branch_pull_request_url(&git_bin(), &repo, "develop").unwrap(),
+            "https://github.com/owner/repo/compare/develop?expand=1"
+        );
+
+        git(&repo, &["config", "branch.develop.remote", "origin"]);
+        git(&repo, &["config", "branch.develop.merge", "refs/heads/feature/remote-name"]);
+        assert_eq!(
+            branch_pull_request_url(&git_bin(), &repo, "develop").unwrap(),
+            "https://github.com/owner/repo/compare/feature/remote-name?expand=1"
+        );
+
+        git(
+            &repo,
+            &["remote", "add", "upstream", "git@github.com:other/repo.git"],
+        );
+        git(&repo, &["config", "branch.develop.remote", "upstream"]);
+        let err = branch_pull_request_url(&git_bin(), &repo, "develop").unwrap_err();
+        assert!(err.contains("origin"), "{err}");
     }
 
     #[test]

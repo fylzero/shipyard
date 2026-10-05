@@ -363,6 +363,10 @@ export function commitRemoteUrl(path: string, hash: string) {
   return invoke<string>("commit_remote_url", { path, hash });
 }
 
+export function branchPullRequestUrl(path: string, branch: string) {
+  return invoke<string>("branch_pull_request_url", { path, branch });
+}
+
 export function mergeLocalBranch(path: string, source: string, target: string) {
   return invoke<string>("merge_local_branch", { path, source, target });
 }

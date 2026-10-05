@@ -32,6 +32,7 @@ const emit = defineEmits<{
   merge: [];
   pullBranch: [branch: string];
   mergeIntoCurrent: [branch: string];
+  createPullRequest: [branch: string];
   refreshBranches: [];
 }>();
 
@@ -84,7 +85,8 @@ function openBranchActions(branch: string, x: number, y: number) {
   const canPull = Boolean(tracking?.upstream) && (tracking?.behind ?? 0) > 0;
   const checkedOut = props.checkedOutBranch ?? "";
   const canMerge = Boolean(checkedOut) && branch !== checkedOut;
-  branchActions.value = canPull || canMerge ? { branch, x, y } : null;
+  const canCreatePullRequest = Boolean(tracking?.upstream?.startsWith("origin/"));
+  branchActions.value = canPull || canMerge || canCreatePullRequest ? { branch, x, y } : null;
 }
 
 function closeBranchActions() {
@@ -107,6 +109,15 @@ function mergeFromMenu() {
   close();
   if (branch) {
     emit("mergeIntoCurrent", branch);
+  }
+}
+
+function createPullRequestFromMenu() {
+  const branch = branchActions.value?.branch;
+  branchActions.value = null;
+  close();
+  if (branch) {
+    emit("createPullRequest", branch);
   }
 }
 
@@ -215,6 +226,7 @@ async function toggleBranches() {
           :busy="busy"
           @pull="pullFromMenu"
           @merge-into-current="mergeFromMenu"
+          @create-pull-request="createPullRequestFromMenu"
           @close="closeBranchActions"
         />
       </div>

@@ -2083,6 +2083,18 @@ async function openRemoteUrl(url: string) {
   }
 }
 
+async function openPullRequestPage(branch: string) {
+  const match = current.value;
+  if (!match) {
+    return;
+  }
+  try {
+    await openUrl(await api.branchPullRequestUrl(match.repo.path, branch));
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
 function suggestedRemoteName() {
   const names = new Set(remotes.value.map((remote) => remote.name));
   if (!names.has("origin")) {
@@ -2963,6 +2975,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         @merge="openMergeBranch()"
         @pull-branch="pullLocalBranch"
         @merge-into-current="openMergeIntoCurrent"
+        @create-pull-request="openPullRequestPage"
         @refresh-branches="refreshBranches"
       />
       <RepoViewTabs

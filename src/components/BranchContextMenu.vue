@@ -15,6 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   pull: [];
   mergeIntoCurrent: [];
+  createPullRequest: [];
   close: [];
 }>();
 
@@ -25,6 +26,7 @@ const top = ref(props.y);
 const isCurrent = computed(() => props.branch === props.current);
 const showPull = computed(() => Boolean(props.upstream) && props.behind > 0);
 const showMerge = computed(() => Boolean(props.current) && !isCurrent.value);
+const showPullRequest = computed(() => props.upstream.startsWith("origin/"));
 
 // A branch that isn't checked out can only be fast-forwarded in place, so local commits block it.
 const pullBlocked = computed(() => !isCurrent.value && props.ahead > 0);
@@ -163,6 +165,16 @@ watch(
         @click="emit('mergeIntoCurrent')"
       >
         Merge into current branch
+      </button>
+      <button
+        v-if="showPullRequest"
+        class="context-menu-item"
+        type="button"
+        role="menuitem"
+        :title="`Open a new pull request for ${upstream} in your browser`"
+        @click="emit('createPullRequest')"
+      >
+        Create pull request…
       </button>
     </div>
   </Teleport>

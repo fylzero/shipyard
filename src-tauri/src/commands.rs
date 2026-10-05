@@ -1292,6 +1292,20 @@ pub async fn commit_remote_url(
 }
 
 #[tauri::command]
+pub async fn branch_pull_request_url(
+    state: State<'_, AppState>,
+    path: String,
+    branch: String,
+) -> Result<String, String> {
+    let git = require_git(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        git::branch_pull_request_url(&git, Path::new(&path), &branch)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
 pub async fn merge_local_branch(
     state: State<'_, AppState>,
     path: String,

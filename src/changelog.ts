@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.12.0",
+    date: "October 5, 2026",
+    notes: [
+      "Right-click a branch in the branch dropdown and choose Create pull request… to open your host's new pull request page in the browser. It works with GitHub, GitLab, and Bitbucket, and doesn't need a sign-in or token.",
+      "Create pull request… shows for branches that exist on origin. Branches marked Local need to be pushed first.",
+    ],
+  },
+  {
     version: "1.11.0",
     date: "October 3, 2026",
     notes: [
