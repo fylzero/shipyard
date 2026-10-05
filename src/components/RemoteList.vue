@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, useId } from "vue";
+import { computed, useId } from "vue";
 import BranchIcon from "./BranchIcon.vue";
+import { filterBranches } from "./BranchesHeader.vue";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
 import { formatCommitDate } from "../graphLayout";
 import type { RemoteBranch, RemoteEntry, RemoteOverview } from "../types";
@@ -12,6 +13,7 @@ const props = defineProps<{
   busy: boolean;
   loading: boolean;
   fetching: boolean;
+  query: string;
 }>();
 
 const emit = defineEmits<{
@@ -28,8 +30,6 @@ const emit = defineEmits<{
 
 const menuId = `remote-picker-${useId()}`;
 const { isOpen, toggle, close } = useOverflowMenu(() => menuId);
-const query = ref("");
-const searchInput = ref<HTMLInputElement | null>(null);
 
 const selectedRemote = computed(
   () => props.remotes.find((remote) => remote.name === props.selected) ?? null,
@@ -39,20 +39,13 @@ const branches = computed(() =>
   props.overview?.remote === props.selected ? props.overview.branches : [],
 );
 
-const visibleBranches = computed(() => {
-  const needle = query.value.trim().toLowerCase();
-  if (!needle) {
-    return branches.value;
-  }
-  return branches.value.filter((branch) => branch.name.toLowerCase().includes(needle));
-});
+const visibleBranches = computed(() => filterBranches(branches.value, props.query));
 
 function selectFromMenu(name: string) {
   close();
   if (name === props.selected) {
     return;
   }
-  query.value = "";
   emit("select", name);
 }
 
@@ -90,50 +83,6 @@ function checkoutTitle(branch: RemoteBranch) {
   return `Create local ${branch.name} tracking ${branch.remote}/${branch.name}`;
 }
 
-function clearSearch() {
-  query.value = "";
-  searchInput.value?.focus();
-}
-
-function onSearchKeydown(event: KeyboardEvent) {
-  if (event.key !== "Escape") {
-    return;
-  }
-  event.stopPropagation();
-  if (query.value) {
-    query.value = "";
-    return;
-  }
-  searchInput.value?.blur();
-}
-
-function typingElsewhere(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement) || target === searchInput.value) {
-    return false;
-  }
-  return target.isContentEditable || target.closest("input, textarea, select") !== null;
-}
-
-function onKeydown(event: KeyboardEvent) {
-  if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "f") {
-    return;
-  }
-  // Repo tabs stay mounted while hidden; only the visible list should respond.
-  if (!searchInput.value?.offsetParent || typingElsewhere(event.target)) {
-    return;
-  }
-  event.preventDefault();
-  searchInput.value?.focus();
-  searchInput.value?.select();
-}
-
-onMounted(() => {
-  window.addEventListener("keydown", onKeydown);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("keydown", onKeydown);
-});
 </script>
 
 <template>
@@ -251,40 +200,6 @@ onUnmounted(() => {
           Remove
         </button>
       </div>
-    </div>
-    <div v-if="branches.length" class="branch-search">
-      <label class="branch-search-field">
-        <span class="sr-only">Filter remote branches</span>
-        <svg class="branch-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-        </svg>
-        <input
-          ref="searchInput"
-          v-model="query"
-          type="text"
-          class="branch-search-query"
-          placeholder="Filter branches"
-          autocapitalize="off"
-          autocorrect="off"
-          autocomplete="off"
-          spellcheck="false"
-          @keydown="onSearchKeydown"
-        />
-        <button
-          v-if="query"
-          class="file-tree-clear"
-          type="button"
-          title="Clear search"
-          @click="clearSearch"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </label>
-      <span v-if="query.trim()" class="muted tiny branch-search-count">
-        {{ visibleBranches.length }} of {{ branches.length }}
-      </span>
     </div>
     <div v-if="remotes.length" class="graph-scroll branch-list">
       <p v-if="loading && !branches.length" class="muted tiny branch-list-hint">

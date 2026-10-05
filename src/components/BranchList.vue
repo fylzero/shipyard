@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import BranchIcon from "./BranchIcon.vue";
+import { filterBranches } from "./BranchesHeader.vue";
 import { rangeIds, toggleId } from "../selection";
 import type { BranchOverview, LocalBranch } from "../types";
 
 const props = defineProps<{
   overview: BranchOverview | null;
   busy: boolean;
+  query: string;
 }>();
 
 const emit = defineEmits<{
@@ -20,19 +22,8 @@ const emit = defineEmits<{
 
 const selected = ref<string[]>([]);
 const anchor = ref<string | null>(null);
-const query = ref("");
-const searchInput = ref<HTMLInputElement | null>(null);
 
-const searching = computed(() => Boolean(query.value.trim()));
-
-const visibleBranches = computed(() => {
-  const branches = props.overview?.branches ?? [];
-  const needle = query.value.trim().toLowerCase();
-  if (!needle) {
-    return branches;
-  }
-  return branches.filter((branch) => branch.name.toLowerCase().includes(needle));
-});
+const visibleBranches = computed(() => filterBranches(props.overview?.branches ?? [], props.query));
 
 const leftoverCount = computed(
   () =>
@@ -101,41 +92,7 @@ function deleteSelected() {
   emit("deleteSelected", selectedBranches.value);
 }
 
-function clearSearch() {
-  query.value = "";
-  searchInput.value?.focus();
-}
-
-function onSearchKeydown(event: KeyboardEvent) {
-  if (event.key !== "Escape") {
-    return;
-  }
-  event.stopPropagation();
-  if (query.value) {
-    query.value = "";
-    return;
-  }
-  searchInput.value?.blur();
-}
-
-function typingElsewhere(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement) || target === searchInput.value) {
-    return false;
-  }
-  return target.isContentEditable || target.closest("input, textarea, select") !== null;
-}
-
 function onKeydown(event: KeyboardEvent) {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
-    // Repo tabs stay mounted while hidden; only the visible list should respond.
-    if (!searchInput.value?.offsetParent || typingElsewhere(event.target)) {
-      return;
-    }
-    event.preventDefault();
-    searchInput.value?.focus();
-    searchInput.value?.select();
-    return;
-  }
   if (event.key === "Escape" && selected.value.length) {
     selected.value = [];
   }
@@ -163,40 +120,6 @@ onUnmounted(() => {
 
 <template>
   <div class="branch-pane">
-    <div v-if="overview?.branches.length" class="branch-search">
-      <label class="branch-search-field">
-        <span class="sr-only">Filter branches</span>
-        <svg class="branch-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-        </svg>
-        <input
-          ref="searchInput"
-          v-model="query"
-          type="text"
-          class="branch-search-query"
-          placeholder="Filter branches"
-          autocapitalize="off"
-          autocorrect="off"
-          autocomplete="off"
-          spellcheck="false"
-          @keydown="onSearchKeydown"
-        />
-        <button
-          v-if="query"
-          class="file-tree-clear"
-          type="button"
-          title="Clear search"
-          @click="clearSearch"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </label>
-      <span v-if="searching" class="muted tiny branch-search-count">
-        {{ visibleBranches.length }} of {{ overview.branches.length }}
-      </span>
-    </div>
     <div class="graph-scroll branch-list">
       <p v-if="!overview" class="muted tiny branch-list-hint">
         <span class="spinner" aria-hidden="true" />

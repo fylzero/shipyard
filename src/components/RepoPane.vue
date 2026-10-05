@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BranchList from "./BranchList.vue";
+import BranchesHeader, { filterBranches, type BranchesView } from "./BranchesHeader.vue";
 import BranchSelect from "./BranchSelect.vue";
 import ChangesPanelTabs from "./ChangesPanelTabs.vue";
 import CommitFiles from "./CommitFiles.vue";
@@ -82,13 +83,19 @@ const branchTracking = ref<BranchTracking[]>([]);
 let trackingGeneration = 0;
 const trackingPath = ref("");
 const mainTab = ref<RepoViewTab>("commits");
-const branchesView = computed(() => mainTab.value === "branches");
+const branchesSubView = ref<BranchesView>("local");
+const branchQuery = ref("");
+const branchesView = computed(
+  () => mainTab.value === "branches" && branchesSubView.value === "local",
+);
 const graphStale = ref(false);
 const stashes = ref<StashEntry[]>([]);
 const stashView = computed(() => mainTab.value === "stashes");
 const tags = ref<TagEntry[]>([]);
 const tagView = computed(() => mainTab.value === "tags");
-const remotesView = computed(() => mainTab.value === "remotes");
+const remotesView = computed(
+  () => mainTab.value === "branches" && branchesSubView.value === "remotes",
+);
 const remotes = ref<RemoteEntry[]>([]);
 const selectedRemote = ref("");
 const remoteOverview = ref<RemoteOverview | null>(null);
@@ -109,6 +116,15 @@ const syncPush = ref(true);
 const terminalStarted = ref(false);
 const overview = ref<BranchOverview | null>(null);
 let overviewGeneration = 0;
+const branchesSubViewList = computed((): { name: string }[] => {
+  if (branchesSubView.value === "local") {
+    return overview.value?.branches ?? [];
+  }
+  return remoteOverview.value?.remote === selectedRemote.value ? remoteOverview.value.branches : [];
+});
+const branchesSubViewVisible = computed(
+  () => filterBranches(branchesSubViewList.value, branchQuery.value).length,
+);
 const selectedFile = ref<WorkingTreeFile | null>(null);
 const selectedCommit = ref<CommitNode | null>(null);
 const selectedStash = ref<StashEntry | null>(null);
@@ -1602,6 +1618,9 @@ async function selectMainTab(tab: RepoViewTab) {
   if (selectedStash.value) {
     closeCommitDetail();
   }
+  if (mainTab.value === "branches") {
+    branchQuery.value = "";
+  }
   mainTab.value = tab;
   if (tab === "terminal") {
     terminalStarted.value = true;
@@ -1614,6 +1633,26 @@ async function selectMainTab(tab: RepoViewTab) {
     return;
   }
   if (tab === "branches") {
+    const path = current.value?.repo.path;
+    branchesSubView.value = path ? rememberedBranchesView(path) : "local";
+    await openBranchesSubView();
+  }
+}
+
+async function selectBranchesSubView(view: BranchesView) {
+  if (branchesSubView.value === view) {
+    return;
+  }
+  branchesSubView.value = view;
+  const path = current.value?.repo.path;
+  if (path) {
+    rememberBranchesView(path, view);
+  }
+  await openBranchesSubView();
+}
+
+async function openBranchesSubView() {
+  if (branchesSubView.value === "local") {
     await nextTick();
     try {
       await loadOverview();
@@ -1622,14 +1661,32 @@ async function selectMainTab(tab: RepoViewTab) {
     }
     return;
   }
-  if (tab === "remotes") {
-    const match = current.value;
-    if (!match) {
-      return;
-    }
-    await refreshRemoteList(match.repo.path);
-    await loadRemoteOverview();
-    void fetchSelectedRemote({ quiet: true });
+  const match = current.value;
+  if (!match) {
+    return;
+  }
+  await refreshRemoteList(match.repo.path);
+  await loadRemoteOverview();
+  void fetchSelectedRemote({ quiet: true });
+}
+
+function branchesViewStorageKey(path: string) {
+  return `shipyard:branches-view:${path}`;
+}
+
+function rememberedBranchesView(path: string): BranchesView {
+  try {
+    return localStorage.getItem(branchesViewStorageKey(path)) === "remotes" ? "remotes" : "local";
+  } catch {
+    return "local";
+  }
+}
+
+function rememberBranchesView(path: string, view: BranchesView) {
+  try {
+    localStorage.setItem(branchesViewStorageKey(path), view);
+  } catch {
+    /* choice just won't persist */
   }
 }
 
@@ -2883,6 +2940,8 @@ watch(
   () => props.repoId,
   () => {
     mainTab.value = "commits";
+    branchesSubView.value = "local";
+    branchQuery.value = "";
     remoteGeneration += 1;
     remotes.value = [];
     selectedRemote.value = "";
@@ -2982,7 +3041,6 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         :active="mainTab"
         :busy="actionBusy"
         :branch-count="branches.length"
-        :remote-count="remotes.length"
         :tag-count="tags.length"
         :stash-count="stashes.length"
         @select="selectMainTab"
@@ -3022,10 +3080,20 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
           :cwd="current.repo.path"
           :active="mainTab === 'terminal'"
         />
+        <BranchesHeader
+          v-if="mainTab === 'branches'"
+          v-model:query="branchQuery"
+          :view="branchesSubView"
+          :busy="actionBusy"
+          :total="branchesSubViewList.length"
+          :visible="branchesSubViewVisible"
+          @select="selectBranchesSubView"
+        />
         <BranchList
           v-if="branchesView"
           :overview="overview"
           :busy="actionBusy"
+          :query="branchQuery"
           @checkout="checkoutListedBranch"
           @merge="openMergeBranch"
           @rename="openRenameBranch"
@@ -3041,6 +3109,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
           :busy="actionBusy"
           :loading="remoteLoading"
           :fetching="remoteFetching"
+          :query="branchQuery"
           @select="selectRemote"
           @fetch="fetchSelectedRemote()"
           @add="openAddRemote"

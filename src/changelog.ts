@@ -12,6 +12,8 @@ export const CHANGELOG: ChangelogRelease[] = [
       "Right-click a branch in the branch dropdown and choose Create pull request… to open your host's new pull request page in the browser. It works with GitHub, GitLab, and Bitbucket, and doesn't need a sign-in or token.",
       "Create pull request… shows for branches that exist on origin. Branches marked Local need to be pushed first.",
       "Add repository is now the first button on the dashboard. New group moved after Clone repository.",
+      "Branches and Remotes are now one Branches tab. Switch between Local and Remote at the top. Each repo remembers which one you used last.",
+      "The branch filter is shared between Local and Remote, so you can type a name once and flip between them. Command-F still jumps to it.",
     ],
   },
   {
