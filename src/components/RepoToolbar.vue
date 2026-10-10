@@ -81,12 +81,17 @@ function selectBranch(branch: string) {
 }
 
 function openBranchActions(branch: string, x: number, y: number) {
-  const tracking = props.branchTracking?.find((item) => item.name === branch);
-  const canPull = Boolean(tracking?.upstream) && (tracking?.behind ?? 0) > 0;
-  const checkedOut = props.checkedOutBranch ?? "";
-  const canMerge = Boolean(checkedOut) && branch !== checkedOut;
-  const canCreatePullRequest = Boolean(tracking?.upstream?.startsWith("origin/"));
-  branchActions.value = canPull || canMerge || canCreatePullRequest ? { branch, x, y } : null;
+  window.getSelection()?.removeAllRanges();
+  branchActions.value = { branch, x, y };
+}
+
+function openCurrentBranchMenu(event: MouseEvent) {
+  if (!props.branch) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  openBranchActions(props.branch, event.clientX, event.clientY);
 }
 
 function closeBranchActions() {
@@ -167,6 +172,7 @@ async function toggleBranches() {
           aria-haspopup="menu"
           :title="branch ? `Switch branch from ${branch}` : 'Switch branch'"
           @click="toggleBranches"
+          @contextmenu="openCurrentBranchMenu"
         >
           <span class="branch-switch-name">{{ branch || "No branch" }}</span>
           <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -215,7 +221,7 @@ async function toggleBranches() {
           />
         </div>
         <BranchContextMenu
-          v-if="isOpen && branchActions"
+          v-if="branchActions"
           :branch="branchActions.branch"
           :current="checkedOutBranch ?? ''"
           :behind="branchActionsTracking?.behind ?? 0"

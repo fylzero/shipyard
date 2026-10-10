@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
 import { filterBranches } from "./BranchesHeader.vue";
 import { rangeIds, toggleId } from "../selection";
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 
 const selected = ref<string[]>([]);
 const anchor = ref<string | null>(null);
+const nameMenu = ref<{ name: string; x: number; y: number } | null>(null);
 
 const visibleBranches = computed(() => filterBranches(props.overview?.branches ?? [], props.query));
 
@@ -62,6 +64,19 @@ function isPartial(branch: LocalBranch) {
 
 function isSelected(branch: LocalBranch) {
   return selected.value.includes(branch.name);
+}
+
+function keepNameUnselected(event: MouseEvent) {
+  if (event.button === 2) {
+    event.preventDefault();
+  }
+}
+
+function openNameMenu(event: MouseEvent, name: string) {
+  event.preventDefault();
+  event.stopPropagation();
+  window.getSelection()?.removeAllRanges();
+  nameMenu.value = { name, x: event.clientX, y: event.clientY };
 }
 
 function onRowClick(event: MouseEvent, branch: LocalBranch) {
@@ -153,6 +168,8 @@ onUnmounted(() => {
         }"
         :aria-selected="isSelected(branch)"
         @click="onRowClick($event, branch)"
+        @mousedown="keepNameUnselected"
+        @contextmenu="openNameMenu($event, branch.name)"
       >
         <BranchIcon />
         <span class="branch-row-name">{{ branch.name }}</span>
@@ -240,6 +257,13 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+    <BranchContextMenu
+      v-if="nameMenu"
+      :branch="nameMenu.name"
+      :x="nameMenu.x"
+      :y="nameMenu.y"
+      @close="nameMenu = null"
+    />
     <div class="branch-footer">
       <button
         class="ghost tiny danger"

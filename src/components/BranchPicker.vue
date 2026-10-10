@@ -85,6 +85,7 @@ function onHover(index: number) {
 
 function onBranchContextMenu(event: MouseEvent, index: number) {
   event.preventDefault();
+  window.getSelection()?.removeAllRanges();
   const item = filteredItems.value[index];
   if (!item) {
     return;

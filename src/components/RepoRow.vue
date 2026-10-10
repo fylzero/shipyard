@@ -9,6 +9,7 @@ import { conflictCountLabel } from "../gitOperation";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
 import { useTabs } from "../composables/useTabs";
 import type { RepoEntry } from "../types";
+import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
 import FileIcon from "./FileIcon.vue";
 import RepoIcon from "./RepoIcon.vue";
@@ -35,6 +36,7 @@ const { isOpen: menuOpen, toggle: toggleMenu, close: closeMenu } = useOverflowMe
   () => `repo:${props.repo.id}`,
 );
 
+const branchMenu = ref<{ branch: string; x: number; y: number } | null>(null);
 const editing = ref(false);
 const labelDraft = ref("");
 const colorDraft = ref(DEFAULT_HEADER_COLOR);
@@ -74,6 +76,17 @@ function handleClick(event: MouseEvent) {
     openRepo(props.repo.id);
   }
   lastRepoClick.value = props.repo.id;
+}
+
+function openBranchMenu(event: MouseEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  window.getSelection()?.removeAllRanges();
+  const branch = statuses.value[props.repo.id]?.branch;
+  if (!branch) {
+    return;
+  }
+  branchMenu.value = { branch, x: event.clientX, y: event.clientY };
 }
 
 function onRemove() {
@@ -210,7 +223,7 @@ async function saveEdit() {
     </span>
     <span v-if="!editing" class="branch">
       <span v-if="isRepoRefreshing(repo.id)" class="spinner" aria-label="Fetching repository" />
-      <span class="branch-name">
+      <span class="branch-name" @contextmenu="openBranchMenu">
         <BranchIcon />
         {{ statuses[repo.id]?.branch ?? "…" }}
       </span>
@@ -309,5 +322,12 @@ async function saveEdit() {
         </button>
       </div>
     </div>
+    <BranchContextMenu
+      v-if="branchMenu"
+      :branch="branchMenu.branch"
+      :x="branchMenu.x"
+      :y="branchMenu.y"
+      @close="branchMenu = null"
+    />
   </div>
 </template>

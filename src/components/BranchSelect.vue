@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onUnmounted, ref } from "vue";
+import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchPicker from "./BranchPicker.vue";
 import type { BranchTracking } from "../types";
 
@@ -22,6 +23,8 @@ const VIEWPORT_MARGIN = 12;
 
 const rootEl = ref<HTMLElement | null>(null);
 const triggerEl = ref<HTMLButtonElement | null>(null);
+const pickerRef = ref<InstanceType<typeof BranchPicker> | null>(null);
+const branchActions = ref<{ branch: string; x: number; y: number } | null>(null);
 const isOpen = ref(false);
 const openAbove = ref(false);
 const maxHeight = ref(DROPDOWN_MAX_HEIGHT);
@@ -29,10 +32,22 @@ const initialQuery = ref("");
 
 function onDocumentPointerDown(event: PointerEvent) {
   const target = event.target;
+  if (target instanceof Element && target.closest(".branch-context-menu")) {
+    return;
+  }
   if (target instanceof Node && rootEl.value?.contains(target)) {
     return;
   }
   close(false);
+}
+
+function openBranchActions(branch: string, x: number, y: number) {
+  branchActions.value = { branch, x, y };
+}
+
+function closeBranchActions() {
+  branchActions.value = null;
+  pickerRef.value?.focus();
 }
 
 function open(query = "") {
@@ -56,6 +71,7 @@ function close(refocus = true) {
     return;
   }
   isOpen.value = false;
+  branchActions.value = null;
   document.removeEventListener("pointerdown", onDocumentPointerDown, true);
   if (refocus) {
     void nextTick(() => triggerEl.value?.focus());
@@ -139,6 +155,7 @@ onUnmounted(() => {
       @keydown="onDropdownKeydown"
     >
       <BranchPicker
+        ref="pickerRef"
         :branches="branches"
         :branch-tracking="branchTracking"
         :selected="modelValue"
@@ -147,7 +164,15 @@ onUnmounted(() => {
         :empty-text="emptyText"
         @select="select"
         @close="close()"
+        @branch-menu="openBranchActions"
       />
     </div>
+    <BranchContextMenu
+      v-if="isOpen && branchActions"
+      :branch="branchActions.branch"
+      :x="branchActions.x"
+      :y="branchActions.y"
+      @close="closeBranchActions"
+    />
   </div>
 </template>

@@ -1,16 +1,30 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { useApp } from "../composables/useApp";
 
-const props = defineProps<{
-  branch: string;
-  current: string;
-  behind: number;
-  ahead: number;
-  upstream: string;
-  x: number;
-  y: number;
-  busy: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    branch: string;
+    x: number;
+    y: number;
+    current?: string;
+    behind?: number;
+    ahead?: number;
+    upstream?: string;
+    busy?: boolean;
+    copyLabel?: string;
+    copiedMessage?: string;
+  }>(),
+  {
+    current: "",
+    behind: 0,
+    ahead: 0,
+    upstream: "",
+    busy: false,
+    copyLabel: "Copy branch name",
+    copiedMessage: "Copied branch name",
+  },
+);
 
 const emit = defineEmits<{
   pull: [];
@@ -18,6 +32,8 @@ const emit = defineEmits<{
   createPullRequest: [];
   close: [];
 }>();
+
+const { showToast } = useApp();
 
 const menuEl = ref<HTMLElement | null>(null);
 const left = ref(props.x);
@@ -110,6 +126,16 @@ function onContextMenu(event: MouseEvent) {
   event.preventDefault();
 }
 
+async function copyName() {
+  try {
+    await navigator.clipboard.writeText(props.branch);
+    showToast(props.copiedMessage);
+    emit("close");
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
 onMounted(() => {
   document.addEventListener("pointerdown", onDocumentPointerDown);
   window.addEventListener("keydown", onWindowKeydown, true);
@@ -175,6 +201,10 @@ watch(
         @click="emit('createPullRequest')"
       >
         Create pull request…
+      </button>
+      <div v-if="showPull || showMerge || showPullRequest" class="context-menu-sep" />
+      <button class="context-menu-item" type="button" role="menuitem" @click="copyName">
+        {{ copyLabel }}
       </button>
     </div>
   </Teleport>

@@ -6,6 +6,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.13.0",
+    date: "October 9, 2026",
+    notes: [
+      "Right-click a branch and choose Copy branch name. Copy is always there, including on the branch you're already on, and on the branch shown for each repository.",
+      "Right-click a local branch, a remote branch, or a tag to copy that name.",
+      "Branch names in the dropdown, and names in the branch and tag lists, no longer highlight a single word when you right-click them.",
+    ],
+  },
+  {
     version: "1.12.0",
     date: "October 5, 2026",
     notes: [

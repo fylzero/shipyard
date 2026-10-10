@@ -2264,6 +2264,8 @@ button.link-button:hover:not(:disabled) {
 
 .branch-name {
   gap: 0.15rem;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .branch-icon,
@@ -2967,6 +2969,8 @@ body.is-resizing-y * {
   max-width: 16rem;
   padding: 0.15rem 0.45rem;
   border-radius: 6px;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .branch-switch-name {
@@ -2997,6 +3001,8 @@ body.is-resizing-y * {
   max-width: 28rem;
   max-height: 22rem;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .branch-menu-dropdown > .overflow-menu-item,
@@ -3016,6 +3022,8 @@ body.is-resizing-y * {
   min-width: 14rem;
   padding: 0.28rem 1.6rem 0.28rem 1.7rem;
   font-size: 12px;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .branch-menu-search input:focus {
@@ -3076,6 +3084,8 @@ body.is-resizing-y * {
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .branch-menu-list {
@@ -3135,6 +3145,8 @@ body.is-resizing-y * {
   background: #0d1016;
   color: var(--text);
   text-align: left;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .branch-select-trigger:hover:not(:disabled) {
@@ -3280,6 +3292,7 @@ input[type="text"].branch-search-query {
   gap: 0.45rem;
   padding: 0.4rem 0.85rem;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  -webkit-user-select: none;
   user-select: none;
 }
 

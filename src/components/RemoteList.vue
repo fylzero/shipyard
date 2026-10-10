@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import { computed, ref, useId } from "vue";
+import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
 import { filterBranches } from "./BranchesHeader.vue";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
@@ -29,7 +30,21 @@ const emit = defineEmits<{
 }>();
 
 const menuId = `remote-picker-${useId()}`;
+const nameMenu = ref<{ name: string; x: number; y: number } | null>(null);
 const { isOpen, toggle, close } = useOverflowMenu(() => menuId);
+
+function keepNameUnselected(event: MouseEvent) {
+  if (event.button === 2) {
+    event.preventDefault();
+  }
+}
+
+function openNameMenu(event: MouseEvent, name: string) {
+  event.preventDefault();
+  event.stopPropagation();
+  window.getSelection()?.removeAllRanges();
+  nameMenu.value = { name, x: event.clientX, y: event.clientY };
+}
 
 const selectedRemote = computed(
   () => props.remotes.find((remote) => remote.name === props.selected) ?? null,
@@ -221,6 +236,8 @@ function checkoutTitle(branch: RemoteBranch) {
         :key="branch.name"
         class="branch-row remote-row"
         :class="{ current: branch.current }"
+        @mousedown="keepNameUnselected"
+        @contextmenu="openNameMenu($event, branch.name)"
       >
         <BranchIcon />
         <span class="branch-row-name" :title="`${branch.remote}/${branch.name}`">
@@ -289,5 +306,12 @@ function checkoutTitle(branch: RemoteBranch) {
         </div>
       </div>
     </div>
+    <BranchContextMenu
+      v-if="nameMenu"
+      :branch="nameMenu.name"
+      :x="nameMenu.x"
+      :y="nameMenu.y"
+      @close="nameMenu = null"
+    />
   </div>
 </template>
