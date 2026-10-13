@@ -55,7 +55,8 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  border-color: color-mix(in srgb, currentColor 58%, transparent);
 }
 
 button:disabled {
@@ -71,6 +72,7 @@ button.primary {
 
 button.primary:hover:not(:disabled) {
   background: var(--accent-strong);
+  border-color: transparent;
 }
 
 button.ghost {
@@ -1869,13 +1871,8 @@ button.chevron:active {
   border-color: color-mix(in srgb, currentColor 58%, transparent);
 }
 
-.group-header .split-action-main,
-.repo-row-actions .split-action-main,
-.repo-toolbar-actions .split-action-main {
-  border-right-width: 0;
-}
-
-.group-header .overflow-menu-trigger {
+.group-header .overflow-menu-trigger,
+.group-header .overflow-menu-trigger:hover:not(:disabled) {
   border-color: transparent;
 }
 
@@ -2055,6 +2052,7 @@ button.link-button:hover:not(:disabled) {
 }
 
 .repo-row-actions {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -2064,16 +2062,23 @@ button.link-button:hover:not(:disabled) {
   gap: 0.3rem;
 }
 
+/* Buttons stay in the layout while busy so the row keeps their height. */
+.repo-row-actions.busy > :not(.action-progress) {
+  visibility: hidden;
+}
+
+.repo-row-actions > .action-progress {
+  position: absolute;
+  inset: 0;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
 .repo-row-actions .ghost {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   white-space: nowrap;
-}
-
-.repo-row-actions .ghost:hover:not(:disabled) {
-  background: color-mix(in srgb, currentColor 16%, transparent);
-  border-color: color-mix(in srgb, currentColor 58%, transparent);
 }
 
 .split-action {
@@ -2083,16 +2088,23 @@ button.link-button:hover:not(:disabled) {
 }
 
 .split-action-main {
-  border-right-width: 0;
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
 }
 
 .split-action-caret {
+  margin-left: -1px;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
   padding-left: 0.28rem;
   padding-right: 0.32rem;
+}
+
+/* Both halves overlap by 1px so the divider stays single-width; lift the hovered or focused half so its full border is visible. */
+.split-action > button:hover:not(:disabled),
+.split-action > button:focus-visible {
+  position: relative;
+  z-index: 1;
 }
 
 .split-action-caret svg {
@@ -2317,6 +2329,7 @@ button.link-button:hover:not(:disabled) {
 
 .repo-menu .overflow-menu-trigger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--text) 16%, transparent);
+  border-color: transparent;
 }
 
 .overflow-menu-trigger {

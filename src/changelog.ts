@@ -12,6 +12,9 @@ export const CHANGELOG: ChangelogRelease[] = [
       "Repos inside a group now have their own Fetch, Pull, and Checkout buttons, just like standalone repos. Use them to act on one repo without touching the rest of the group.",
       "Pull and Checkout on a grouped repo start from the group's saved pull branch and checkout fallbacks. Changing them there only affects that repo and doesn't update the group's settings.",
       "While a group is fetching, pulling, or checking out, its repo buttons are turned off. While a single repo in a group is busy, the group's buttons are turned off until it finishes.",
+      "Repository rows keep the same height while fetching, pulling, or checking out, so the list no longer shifts when the progress label appears.",
+      "Hovering either half of the Pull button now outlines that whole half. Before, the left half was missing its right edge.",
+      "Buttons now share one hover style across the app: a light tint with a brighter border, matching the buttons on the Repositories screen.",
     ],
   },
   {

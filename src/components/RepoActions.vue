@@ -210,7 +210,7 @@ function removeFallback() {
 </script>
 
 <template>
-  <div class="repo-row-actions">
+  <div class="repo-row-actions" :class="{ busy }">
     <span v-if="progress === 'pull'" class="action-progress">
       Pulling
       <span v-if="progressBranch" class="action-branch-badge" :title="progressBranch">
@@ -231,38 +231,36 @@ function removeFallback() {
       Fetching
       <span class="spinner" aria-hidden="true" />
     </span>
-    <template v-else>
-      <button class="ghost tiny" type="button" :disabled="locked" @click.stop="runRefresh">
-        <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
-          />
-        </svg>
-        Fetch
-      </button>
-      <SplitAction
-        :primary-title="pullTitle"
-        more-title="Pull from another branch"
-        :disabled="locked"
-        @primary="pullCurrent"
-        @more="openPull"
-      >
-        <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-          />
-        </svg>
-        Pull
-      </SplitAction>
-      <button class="ghost tiny" type="button" :disabled="locked" @click.stop="openCheckout">
-        <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
-          />
-        </svg>
-        Checkout
-      </button>
-    </template>
+    <button class="ghost tiny" type="button" :disabled="locked" @click.stop="runRefresh">
+      <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
+        />
+      </svg>
+      Fetch
+    </button>
+    <SplitAction
+      :primary-title="pullTitle"
+      more-title="Pull from another branch"
+      :disabled="locked"
+      @primary="pullCurrent"
+      @more="openPull"
+    >
+      <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+        />
+      </svg>
+      Pull
+    </SplitAction>
+    <button class="ghost tiny" type="button" :disabled="locked" @click.stop="openCheckout">
+      <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+        />
+      </svg>
+      Checkout
+    </button>
   </div>
 
   <Modal v-if="modal === 'pull'" title="Pull from remote" @close="closeModal">
