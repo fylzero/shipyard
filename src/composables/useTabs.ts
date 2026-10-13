@@ -22,9 +22,11 @@ export interface AppTab {
 interface RepoTab {
   id: string;
   title: string;
+  openedAt: number;
 }
 
 const repoTabs = ref<RepoTab[]>([]);
+let openCount = 0;
 const historyTabOpen = ref(false);
 const settingsTabOpen = ref(false);
 const changelogTabOpen = ref(false);
@@ -53,7 +55,8 @@ export function useTabs() {
     ...repoTabs.value.map((tab) => {
       const match = findRepo(tab.id);
       return {
-        ...tab,
+        id: tab.id,
+        title: tab.title,
         closable: true,
         accentColor: match?.group?.headerColor || match?.repo.headerColor,
       };
@@ -68,6 +71,9 @@ export function useTabs() {
       ? [{ id: CHANGELOG_TAB_ID, title: "Change Log", closable: true }]
       : []),
   ]);
+
+  // Panes keep their open order so reordering tabs never moves their DOM.
+  const repoPanes = computed(() => [...repoTabs.value].sort((a, b) => a.openedAt - b.openedAt));
 
   function titleFor(id: string) {
     const match = findRepo(id);
@@ -84,7 +90,23 @@ export function useTabs() {
     if (repoTabs.value.some((tab) => tab.id === id)) {
       return;
     }
-    repoTabs.value = [...repoTabs.value, { id, title: titleFor(id) }];
+    repoTabs.value = [...repoTabs.value, { id, title: titleFor(id), openedAt: openCount++ }];
+  }
+
+  function isReorderable(id: string) {
+    return repoTabs.value.some((tab) => tab.id === id);
+  }
+
+  function moveTab(id: string, targetId: string) {
+    const from = repoTabs.value.findIndex((tab) => tab.id === id);
+    const to = repoTabs.value.findIndex((tab) => tab.id === targetId);
+    if (from === -1 || to === -1 || from === to) {
+      return;
+    }
+    const next = [...repoTabs.value];
+    const [tab] = next.splice(from, 1);
+    next.splice(to, 0, tab);
+    repoTabs.value = next;
   }
 
   function routeFor(id: string) {
@@ -283,6 +305,7 @@ export function useTabs() {
   return {
     tabs,
     repoTabs,
+    repoPanes,
     historyTabOpen,
     settingsTabOpen,
     changelogTabOpen,
@@ -290,6 +313,8 @@ export function useTabs() {
     activeId,
     openRepo,
     openRepos,
+    isReorderable,
+    moveTab,
     openHistory,
     openSettings,
     openSettingsJson,

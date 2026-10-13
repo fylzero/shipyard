@@ -93,7 +93,7 @@ function onToastDetails() {
 const GITHUB_URL = "https://github.com/fylzero/shipyard";
 const appVersion = ref("1.1.0");
 const {
-  repoTabs,
+  repoPanes,
   historyTabOpen,
   settingsTabOpen,
   changelogTabOpen,
@@ -217,7 +217,7 @@ watch(statuses, () => {
         <GroupsView />
       </div>
       <div
-        v-for="tab in repoTabs"
+        v-for="tab in repoPanes"
         :key="tab.id"
         class="main-pane"
         v-show="activeId === tab.id"
