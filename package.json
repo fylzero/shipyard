@@ -13,23 +13,23 @@
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
     "@fontsource/jetbrains-mono": "^5.3.0",
-    "@tauri-apps/api": "^2.12.1",
-    "@tauri-apps/plugin-dialog": "^2.8.1",
-    "@tauri-apps/plugin-notification": "^2.5.1",
-    "@tauri-apps/plugin-opener": "^2.7.0",
+    "@tauri-apps/api": "^2.12.3",
+    "@tauri-apps/plugin-dialog": "^2.8.2",
+    "@tauri-apps/plugin-notification": "^2.6.0",
+    "@tauri-apps/plugin-opener": "^2.7.1",
     "@tauri-apps/plugin-process": "^2.4.0",
-    "@tauri-apps/plugin-updater": "^2.13.1",
+    "@tauri-apps/plugin-updater": "^2.13.3",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "codemirror": "^6.0.2",
-    "vue": "^3.5.13",
-    "vue-router": "^4"
+    "vue": "^3.5.44",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.12.1",
-    "@vitejs/plugin-vue": "^6.0.7",
+    "@tauri-apps/cli": "^2.12.2",
+    "@vitejs/plugin-vue": "^6.0.10",
     "typescript": "~6.0.3",
-    "vite": "^8.0.16",
-    "vue-tsc": "^3.3.5"
+    "vite": "^8.3.4",
+    "vue-tsc": "^3.3.13"
   }
 }
