@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.14.0",
+    date: "October 13, 2026",
+    notes: [
+      "Drag a repository tab left or right to reorder it. The tab you're dragging becomes the active one.",
+      "Only repository tabs can be moved. The Groups, History, Settings, and Change Log tabs stay where they are.",
+    ],
+  },
+  {
     version: "1.13.0",
     date: "October 9, 2026",
     notes: [
