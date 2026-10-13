@@ -89,7 +89,7 @@ bun run tauri dev
 
 That command:
 
-1. Starts Vite on `http://localhost:1420` for the Vue UI
+1. Starts Vite on `http://localhost:1430` for the Vue UI
 2. Compiles the Rust/Tauri shell
 3. Opens the native Shipyard window
 
@@ -127,4 +127,4 @@ Xcode Command Line Tools are missing or stale. Run `xcode-select --install` (or 
 Leave the first Rust compile running. If it fails, the error is in the same terminal as `bun run tauri dev`.
 
 **Frontend only (browser, no native APIs)**  
-`bun run dev` serves the Vue app at `http://localhost:1420`. Git, dialogs, and other Tauri APIs need `bun run tauri dev`.
+`bun run dev` serves the Vue app at `http://localhost:1430`. Git, dialogs, and other Tauri APIs need `bun run tauri dev`.
