@@ -1,26 +1,33 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { splitFallbacks, type LastFallback } from "../checkoutFallbacks";
 import { useApp } from "../composables/useApp";
 import type { RepoEntry } from "../types";
 import BranchIcon from "./BranchIcon.vue";
 import Modal from "./Modal.vue";
 import SplitAction from "./SplitAction.vue";
 
-type LastFallback = "develop" | "master" | "main";
-
 const props = defineProps<{
   repo: RepoEntry;
+  groupId: string;
 }>();
 
 const {
+  groups,
   statuses,
   isRepoRefreshing,
+  isGroupRefreshing,
   refreshingAll,
   pullingAll,
-  refreshStandaloneRepo,
-  pullStandaloneRepo,
-  checkoutStandaloneRepo,
+  pullProgress,
+  pullBranchByGroup,
+  checkoutProgress,
+  refreshSingleRepo,
+  pullSingleRepo,
+  checkoutSingleRepo,
 } = useApp();
+
+const group = computed(() => groups.value.find((item) => item.id === props.groupId));
 
 const modal = ref<"pull" | "checkout" | null>(null);
 const pullSource = ref<"current" | "develop" | "master" | "main" | "specify">("current");
@@ -32,12 +39,28 @@ const lastFallback = ref<LastFallback>("develop");
 const action = ref<"pull" | "checkout" | "refresh" | null>(null);
 const actionBranch = ref("");
 
+const groupAction = computed(() => {
+  if (pullProgress.value[props.groupId]) {
+    return "pull";
+  }
+  if (checkoutProgress.value[props.groupId]) {
+    return "checkout";
+  }
+  if (isGroupRefreshing(props.groupId)) {
+    return "refresh";
+  }
+  return null;
+});
+
 const progress = computed(() => {
   if (action.value) {
     return action.value;
   }
   if (pullingAll.value) {
     return "pull";
+  }
+  if (groupAction.value && isRepoRefreshing(props.repo.id)) {
+    return groupAction.value;
   }
   if (refreshingAll.value && isRepoRefreshing(props.repo.id)) {
     return "refresh";
@@ -46,8 +69,18 @@ const progress = computed(() => {
 });
 
 const busy = computed(() => Boolean(progress.value));
+const locked = computed(() => Boolean(groupAction.value) || isRepoRefreshing(props.repo.id));
 
 const currentBranch = computed(() => statuses.value[props.repo.id]?.branch || "");
+const progressBranch = computed(() => {
+  if (actionBranch.value) {
+    return actionBranch.value;
+  }
+  if (groupAction.value === "pull" && !pullingAll.value) {
+    return pullBranchByGroup.value[props.groupId] || currentBranch.value;
+  }
+  return currentBranch.value;
+});
 const pullTitle = computed(() =>
   currentBranch.value ? `Pull from ${currentBranch.value}` : "Pull from current branch",
 );
@@ -97,21 +130,22 @@ function fallbackList() {
 
 function openPull() {
   pullSource.value = "current";
-  specifyBranch.value = "develop";
+  specifyBranch.value = group.value?.pullFromBranch || "develop";
   modal.value = "pull";
 }
 
 function pullCurrent() {
   return runAction("pull", statuses.value[props.repo.id]?.branch || "", () =>
-    pullStandaloneRepo(props.repo.id),
+    pullSingleRepo(props.groupId, props.repo.id),
   );
 }
 
 function openCheckout() {
+  const { extra, last } = splitFallbacks(group.value?.checkoutFallbacks ?? []);
   checkoutSource.value = "develop";
   checkoutTarget.value = "";
-  extraFallbacks.value = [];
-  lastFallback.value = "develop";
+  extraFallbacks.value = extra;
+  lastFallback.value = last;
   modal.value = "checkout";
 }
 
@@ -124,7 +158,7 @@ async function runAction(
   branch: string,
   work: () => Promise<unknown>,
 ) {
-  if (busy.value) {
+  if (busy.value || locked.value) {
     return;
   }
   action.value = kind;
@@ -146,7 +180,7 @@ async function confirmPull() {
   return runAction(
     "pull",
     branch || statuses.value[props.repo.id]?.branch || "",
-    () => pullStandaloneRepo(props.repo.id, branch || undefined),
+    () => pullSingleRepo(props.groupId, props.repo.id, branch || undefined),
   );
 }
 
@@ -158,12 +192,12 @@ async function confirmCheckout() {
   const fallbacks = checkoutSource.value === "specify" ? fallbackList() : [];
   modal.value = null;
   return runAction("checkout", target, () =>
-    checkoutStandaloneRepo(props.repo.id, target, fallbacks),
+    checkoutSingleRepo(props.groupId, props.repo.id, target, fallbacks),
   );
 }
 
 function runRefresh() {
-  return runAction("refresh", "", () => refreshStandaloneRepo(props.repo.id));
+  return runAction("refresh", "", () => refreshSingleRepo(props.groupId, props.repo.id));
 }
 
 function addFallback() {
@@ -179,13 +213,9 @@ function removeFallback() {
   <div class="repo-row-actions">
     <span v-if="progress === 'pull'" class="action-progress">
       Pulling
-      <span
-        v-if="actionBranch || currentBranch"
-        class="action-branch-badge"
-        :title="actionBranch || currentBranch"
-      >
+      <span v-if="progressBranch" class="action-branch-badge" :title="progressBranch">
         <BranchIcon />
-        <span class="action-branch-name">{{ actionBranch || currentBranch }}</span>
+        <span class="action-branch-name">{{ progressBranch }}</span>
       </span>
       <span class="spinner" aria-hidden="true" />
     </span>
@@ -202,7 +232,7 @@ function removeFallback() {
       <span class="spinner" aria-hidden="true" />
     </span>
     <template v-else>
-      <button class="ghost tiny" type="button" @click.stop="runRefresh">
+      <button class="ghost tiny" type="button" :disabled="locked" @click.stop="runRefresh">
         <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
@@ -213,6 +243,7 @@ function removeFallback() {
       <SplitAction
         :primary-title="pullTitle"
         more-title="Pull from another branch"
+        :disabled="locked"
         @primary="pullCurrent"
         @more="openPull"
       >
@@ -223,7 +254,7 @@ function removeFallback() {
         </svg>
         Pull
       </SplitAction>
-      <button class="ghost tiny" type="button" @click.stop="openCheckout">
+      <button class="ghost tiny" type="button" :disabled="locked" @click.stop="openCheckout">
         <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path
             d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"

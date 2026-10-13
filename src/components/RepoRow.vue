@@ -8,17 +8,18 @@ import { useApp } from "../composables/useApp";
 import { conflictCountLabel } from "../gitOperation";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
 import { useTabs } from "../composables/useTabs";
-import type { RepoEntry } from "../types";
+import { STANDALONE_GROUP_ID, type RepoEntry } from "../types";
 import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
 import FileIcon from "./FileIcon.vue";
+import RepoActions from "./RepoActions.vue";
 import RepoIcon from "./RepoIcon.vue";
-import StandaloneRepoActions from "./StandaloneRepoActions.vue";
 
 const lastRepoClick = ref<string | null>(null);
 
 const props = defineProps<{
   repo: RepoEntry;
+  groupId?: string;
   siblingIds: string[];
   flush?: boolean;
   sortable?: boolean;
@@ -270,8 +271,7 @@ async function saveEdit() {
         </span>
       </span>
     </span>
-    <StandaloneRepoActions v-if="flush && !editing" :repo="repo" />
-    <div v-else-if="!editing" class="repo-row-actions" aria-hidden="true" />
+    <RepoActions v-if="!editing" :repo="repo" :group-id="groupId ?? STANDALONE_GROUP_ID" />
     <div class="overflow-menu repo-menu" @click.stop>
       <button
         class="ghost tiny overflow-menu-trigger"

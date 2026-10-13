@@ -518,7 +518,7 @@ export function useApp() {
 
   async function refreshGroup(groupId: string) {
     const group = groups.value.find((item) => item.id === groupId);
-    if (!group) {
+    if (!group || hasBusyRepo(group)) {
       return;
     }
     refreshingGroups.value = { ...refreshingGroups.value, [groupId]: true };
@@ -1034,15 +1034,31 @@ export function useApp() {
     );
   }
 
-  async function refreshStandaloneRepo(repoId: string) {
-    const repo = standaloneRepos.value.find((item) => item.id === repoId);
-    if (!repo || refreshingRepos.value[repoId]) {
+  function groupRepo(groupId: string, repoId: string) {
+    const repos =
+      groupId === STANDALONE_GROUP_ID
+        ? standaloneRepos.value
+        : groups.value.find((item) => item.id === groupId)?.repos ?? [];
+    return repos.find((item) => item.id === repoId);
+  }
+
+  function canRunRepoAction(groupId: string, repoId: string) {
+    return !refreshingRepos.value[repoId] && !busy.value[groupId] && !pullingAll.value;
+  }
+
+  function hasBusyRepo(group: RepoGroup) {
+    return group.repos.some((repo) => refreshingRepos.value[repo.id]);
+  }
+
+  async function refreshSingleRepo(groupId: string, repoId: string) {
+    const repo = groupRepo(groupId, repoId);
+    if (!repo || !canRunRepoAction(groupId, repoId)) {
       return;
     }
     markReposRefreshing([repoId]);
     error.value = "";
     try {
-      applyStatus(await api.refreshRepo(STANDALONE_GROUP_ID, repoId, true));
+      applyStatus(await api.refreshRepo(groupId, repoId, true));
     } catch (err) {
       const text = String(err);
       error.value = text;
@@ -1052,16 +1068,16 @@ export function useApp() {
     }
   }
 
-  async function pullStandaloneRepo(repoId: string, branch?: string) {
-    const repo = standaloneRepos.value.find((item) => item.id === repoId);
-    if (!repo || refreshingRepos.value[repoId] || pullingAll.value) {
+  async function pullSingleRepo(groupId: string, repoId: string, branch?: string) {
+    const repo = groupRepo(groupId, repoId);
+    if (!repo || !canRunRepoAction(groupId, repoId)) {
       return;
     }
     markReposRefreshing([repoId]);
     error.value = "";
     try {
-      const result = await api.pullRepo(STANDALONE_GROUP_ID, repoId, branch);
-      applyStatus(await api.refreshRepo(STANDALONE_GROUP_ID, repoId, false));
+      const result = await api.pullRepo(groupId, repoId, branch);
+      applyStatus(await api.refreshRepo(groupId, repoId, false));
       const name = repoDisplayName(repoId, repo.path);
       presentActionResults(
         branch ? `Pull ${branch}` : "Pull",
@@ -1080,10 +1096,15 @@ export function useApp() {
     }
   }
 
-  async function checkoutStandaloneRepo(repoId: string, target: string, fallbacks: string[]) {
-    const repo = standaloneRepos.value.find((item) => item.id === repoId);
+  async function checkoutSingleRepo(
+    groupId: string,
+    repoId: string,
+    target: string,
+    fallbacks: string[],
+  ) {
+    const repo = groupRepo(groupId, repoId);
     const branch = target.trim();
-    if (!repo || !branch || refreshingRepos.value[repoId]) {
+    if (!repo || !branch || !canRunRepoAction(groupId, repoId)) {
       return;
     }
     if (statuses.value[repoId]?.branch === branch) {
@@ -1092,8 +1113,8 @@ export function useApp() {
     markReposRefreshing([repoId]);
     error.value = "";
     try {
-      const result = await api.checkoutRepo(STANDALONE_GROUP_ID, repoId, branch, fallbacks);
-      applyStatus(await api.refreshRepo(STANDALONE_GROUP_ID, repoId, false));
+      const result = await api.checkoutRepo(groupId, repoId, branch, fallbacks);
+      applyStatus(await api.refreshRepo(groupId, repoId, false));
       if (!result.ok) {
         showToast(result.message, "error");
       }
@@ -1108,7 +1129,13 @@ export function useApp() {
 
   async function pullGroup(groupId: string, branch?: string) {
     const group = groups.value.find((item) => item.id === groupId);
-    if (!group || busy.value[groupId] || !group.repos.length || pullingAll.value) {
+    if (
+      !group ||
+      busy.value[groupId] ||
+      !group.repos.length ||
+      pullingAll.value ||
+      hasBusyRepo(group)
+    ) {
       return;
     }
     error.value = "";
@@ -1321,7 +1348,7 @@ export function useApp() {
 
   async function checkoutGroup(groupId: string, target: string, fallbacks: string[]) {
     const group = groups.value.find((item) => item.id === groupId);
-    if (!group || busy.value[groupId] || !group.repos.length) {
+    if (!group || busy.value[groupId] || !group.repos.length || hasBusyRepo(group)) {
       return;
     }
     const branch = target.trim();
@@ -1540,10 +1567,10 @@ export function useApp() {
     refreshRepoStatus,
     patchRepoStatus,
     refreshGroup,
-    refreshStandaloneRepo,
+    refreshSingleRepo,
     refreshAll,
-    pullStandaloneRepo,
-    checkoutStandaloneRepo,
+    pullSingleRepo,
+    checkoutSingleRepo,
     pullAll,
     pullingAll,
     pullAllCancelled,

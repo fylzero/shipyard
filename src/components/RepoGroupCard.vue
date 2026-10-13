@@ -4,6 +4,7 @@ import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../composables/useApp";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
 import { useTabs } from "../composables/useTabs";
+import { splitFallbacks, type LastFallback } from "../checkoutFallbacks";
 import { contrastingText, DEFAULT_HEADER_COLOR } from "../color";
 import type { RepoEntry, RepoGroup } from "../types";
 import BranchIcon from "./BranchIcon.vue";
@@ -12,12 +13,6 @@ import RepoRow from "./RepoRow.vue";
 import SplitAction from "./SplitAction.vue";
 
 const DEFAULT_HEADER = DEFAULT_HEADER_COLOR;
-const LAST_FALLBACKS = ["develop", "master", "main"] as const;
-type LastFallback = (typeof LAST_FALLBACKS)[number];
-
-function isLastFallback(value: string): value is LastFallback {
-  return (LAST_FALLBACKS as readonly string[]).includes(value);
-}
 
 const props = defineProps<{
   group: RepoGroup;
@@ -65,6 +60,7 @@ const {
   checkoutCancelled,
   cancelCheckout,
   statuses,
+  isRepoRefreshing,
 } = useApp();
 const { hasTab, closeRepos } = useTabs();
 const {
@@ -139,6 +135,10 @@ onMounted(() => {
 });
 
 const actionLabel = computed(() => busy.value[props.group.id] ?? "");
+const rowBusy = computed(
+  () =>
+    !actionLabel.value && props.group.repos.some((repo) => isRepoRefreshing(repo.id)),
+);
 
 const headerStyle = computed(() => ({
   "--group-header": headerColor.value,
@@ -146,15 +146,9 @@ const headerStyle = computed(() => ({
 }));
 
 function loadFallbacks(list: string[]) {
-  const cleaned = list.map((item) => item.trim()).filter(Boolean);
-  const last = cleaned[cleaned.length - 1];
-  if (last && isLastFallback(last)) {
-    lastFallback.value = last;
-    extraFallbacks.value = cleaned.slice(0, -1);
-    return;
-  }
-  lastFallback.value = "develop";
-  extraFallbacks.value = cleaned;
+  const { extra, last } = splitFallbacks(list);
+  extraFallbacks.value = extra;
+  lastFallback.value = last;
 }
 
 function fallbackList() {
@@ -533,7 +527,7 @@ function onHeaderClick(event: MouseEvent) {
               class="tiny"
               type="button"
               :class="canCancelRefresh ? 'danger' : 'ghost'"
-              :disabled="refreshCancelled || (!!actionLabel && !groupRefreshing)"
+              :disabled="refreshCancelled || rowBusy || (!!actionLabel && !groupRefreshing)"
               @click="groupRefreshing ? cancelRefresh() : refreshGroup(group.id)"
             >
               <svg
@@ -566,7 +560,7 @@ function onHeaderClick(event: MouseEvent) {
               v-if="!pulling"
               :primary-title="pullTitle"
               more-title="Pull from another branch"
-              :disabled="!!actionLabel"
+              :disabled="!!actionLabel || rowBusy"
               @primary="pullCurrent"
               @more="openPull"
             >
@@ -604,7 +598,9 @@ function onHeaderClick(event: MouseEvent) {
               class="tiny"
               type="button"
               :class="checkingOut ? 'danger' : 'ghost'"
-              :disabled="(!!actionLabel && !checkingOut) || checkoutCancelled[group.id]"
+              :disabled="
+                (!!actionLabel && !checkingOut) || rowBusy || checkoutCancelled[group.id]
+              "
               @click="openCheckout"
             >
               <svg
@@ -684,6 +680,7 @@ function onHeaderClick(event: MouseEvent) {
         v-for="repo in visibleRepos"
         :key="repo.id"
         :repo="repo"
+        :group-id="group.id"
         :sibling-ids="siblingIds"
         :sortable="!draft && reposSortable"
         :dragging="draggingRepoId === repo.id"
