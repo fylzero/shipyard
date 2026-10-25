@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { homeDir } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useApp } from "../composables/useApp";
@@ -115,14 +115,45 @@ const drag = useDashboardDrag({
   onError: (err) => window.alert(String(err)),
 });
 
+const SEARCH_MIN_REPOS = 6;
+
+const query = ref("");
+const searchInput = ref<HTMLInputElement | null>(null);
+const showSearch = computed(() => repoById.value.size >= SEARCH_MIN_REPOS);
+const searchTerms = computed(() =>
+  showSearch.value ? query.value.trim().toLowerCase().split(/\s+/).filter(Boolean) : [],
+);
+
+watch(showSearch, (shown) => {
+  if (!shown) {
+    query.value = "";
+  }
+});
+const filtering = computed(() => searchTerms.value.length > 0);
+
+function matchesSearch(...fields: (string | undefined)[]) {
+  const haystack = fields.filter(Boolean).join(" ").toLowerCase();
+  return searchTerms.value.every((term) => haystack.includes(term));
+}
+
+function repoMatches(repo: RepoEntry, groupName?: string) {
+  return matchesSearch(groupName, repoDisplayName(repo.id, repo.path), repo.label);
+}
+
 const entries = computed(() =>
   drag.rootIds(dashboardIds.value).flatMap((id): DashboardEntry[] => {
     const group = groupById.value.get(id);
     if (group) {
+      if (filtering.value && !matchesSearch(group.name) && !groupRepos(group).length) {
+        return [];
+      }
       return [{ kind: "group", id, group }];
     }
     const repo = repoById.value.get(id);
-    return repo ? [{ kind: "repo", id, repo }] : [];
+    if (!repo || (filtering.value && !repoMatches(repo))) {
+      return [];
+    }
+    return [{ kind: "repo", id, repo }];
   }),
 );
 const topLevelRepoIds = computed(() =>
@@ -131,14 +162,67 @@ const topLevelRepoIds = computed(() =>
 
 function groupRepos(group: RepoGroup) {
   const ids = drag.groupItemIds(group.id);
-  if (!ids) {
-    return group.repos;
-  }
-  return ids.flatMap((id) => {
-    const repo = repoById.value.get(id);
-    return repo ? [repo] : [];
-  });
+  const repos = ids
+    ? ids.flatMap((id) => {
+        const repo = repoById.value.get(id);
+        return repo ? [repo] : [];
+      })
+    : group.repos;
+  return filtering.value ? repos.filter((repo) => repoMatches(repo, group.name)) : repos;
 }
+
+const totalRepoCount = computed(() => repoById.value.size);
+const visibleRepoCount = computed(() =>
+  entries.value.reduce(
+    (count, entry) => count + (entry.kind === "repo" ? 1 : groupRepos(entry.group).length),
+    0,
+  ),
+);
+
+function clearSearch() {
+  query.value = "";
+  searchInput.value?.focus();
+}
+
+function onSearchKeydown(event: KeyboardEvent) {
+  if (event.key !== "Escape") {
+    return;
+  }
+  event.stopPropagation();
+  if (query.value) {
+    query.value = "";
+    return;
+  }
+  searchInput.value?.blur();
+}
+
+function typingElsewhere(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement) || target === searchInput.value) {
+    return false;
+  }
+  return target.isContentEditable || target.closest("input, textarea, select") !== null;
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "f") {
+    return;
+  }
+  // The dashboard stays mounted behind repo tabs; only respond while it's visible.
+  if (!searchInput.value?.offsetParent || typingElsewhere(event.target)) {
+    return;
+  }
+  event.preventDefault();
+  searchInput.value?.focus();
+  searchInput.value?.select();
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", onKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeydown);
+});
 
 const isEmpty = computed(() => !dashboardIds.value.length);
 
@@ -347,6 +431,39 @@ async function cloneRepo() {
             </button>
           </div>
           <div class="toolbar-end">
+            <span v-if="filtering" class="muted tiny groups-search-count">
+              {{ visibleRepoCount }} of {{ totalRepoCount }}
+            </span>
+            <label v-if="showSearch" class="groups-search-field">
+              <span class="sr-only">Filter repositories</span>
+              <svg class="branch-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
+              </svg>
+              <input
+                ref="searchInput"
+                v-model="query"
+                type="text"
+                placeholder="Filter repositories"
+                autocapitalize="off"
+                autocorrect="off"
+                autocomplete="off"
+                spellcheck="false"
+                @keydown="onSearchKeydown"
+              />
+              <button
+                v-if="query"
+                class="file-tree-clear"
+                type="button"
+                title="Clear search"
+                @click="clearSearch"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </label>
             <button
               v-if="hasGroups"
               class="ghost"
@@ -434,6 +551,9 @@ async function cloneRepo() {
         <p v-if="isEmpty && !creating" class="muted">
           Add a repository, or create a group for several at once.
         </p>
+        <p v-else-if="filtering && !entries.length" class="muted tiny">
+          No repositories match that search.
+        </p>
 
         <div
           class="groups-list"
@@ -452,10 +572,11 @@ async function cloneRepo() {
               v-if="entry.kind === 'group'"
               :data-dashboard-id="entry.id"
               :group="entry.group"
-              :sortable="canSortEntries"
+              :sortable="canSortEntries && !filtering"
               :dragging="drag.draggingGroupId.value === entry.id"
               :repos="groupRepos(entry.group)"
-              :repos-sortable="canDragRepos"
+              :repos-sortable="canDragRepos && !filtering"
+              :force-expanded="filtering"
               :dragging-repo-id="drag.draggingItemId.value"
               :drop-target="drag.dropGroupId.value === entry.id"
               @reorder-start="(event, id) => drag.start(event, 'group', id)"
@@ -467,7 +588,7 @@ async function cloneRepo() {
               :repo="entry.repo"
               :sibling-ids="topLevelRepoIds"
               flush
-              :sortable="canDragRepos"
+              :sortable="canDragRepos && !filtering"
               :dragging="drag.draggingItemId.value === entry.id"
               @remove="removeStandalone"
               @reorder-start="(event, id) => drag.start(event, 'item', id)"

@@ -6,6 +6,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.16.0",
+    date: "October 25, 2026",
+    notes: [
+      "The Repositories screen has a search field next to Expand, Collapse, and Sort A–Z once you have six or more repositories. Type part of a repository name, label, or group name to filter the list, or press Command-F to jump to it.",
+      "Each word you type has to match, so typing a group name and a repository name finds that repository inside that group. Typing just a group name shows the whole group.",
+      "While you're searching, groups with matches open on their own, and groups without matches are hidden. Your groups go back to how you left them when you clear the search.",
+      "Dragging to reorder is turned off while you're searching. Fetch and Pull in the toolbar still act on every repository, not just the ones that match.",
+      "When there isn't room for the whole toolbar, the Expand, Collapse, Sort, Fetch, and Pull buttons move to a second line.",
+    ],
+  },
+  {
     version: "1.15.0",
     date: "October 13, 2026",
     notes: [

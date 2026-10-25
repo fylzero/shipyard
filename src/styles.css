@@ -1508,10 +1508,11 @@ button.tab-tool.update:hover:not(:disabled) {
 
 .groups-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
 }
 
 .toolbar-start,
@@ -1553,6 +1554,26 @@ button.tab-tool.update:hover:not(:disabled) {
 .groups-display .groups-list,
 .groups-display .muted {
   width: 100%;
+}
+
+.groups-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  width: 15rem;
+}
+
+.groups-search-field input[type="text"] {
+  height: 100%;
+  padding-left: 1.7rem;
+  padding-right: 1.6rem;
+  box-sizing: border-box;
+}
+
+.groups-display .groups-search-count {
+  width: auto;
+  white-space: nowrap;
 }
 
 button:has(.spinner) {

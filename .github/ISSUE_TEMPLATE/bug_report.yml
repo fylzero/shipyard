@@ -49,7 +49,7 @@ body:
     attributes:
       label: Shipyard Version
       description: Which version of Shipyard are you using? (Check Shipyard → About or the DMG filename)
-      placeholder: e.g., 1.15.0
+      placeholder: e.g., 1.16.0
 
   - type: input
     id: macos

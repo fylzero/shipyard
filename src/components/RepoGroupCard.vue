@@ -23,6 +23,7 @@ const props = defineProps<{
   reposSortable?: boolean;
   draggingRepoId?: string | null;
   dropTarget?: boolean;
+  forceExpanded?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -88,6 +89,7 @@ const canSortAlpha = computed(
     alphaIds.value.join("\0") !== props.group.repos.map((repo) => repo.id).join("\0"),
 );
 const visibleRepos = computed(() => props.repos ?? props.group.repos);
+const expanded = computed(() => props.group.expanded || props.forceExpanded);
 
 async function sortAlphabetically() {
   closeMenus();
@@ -415,7 +417,7 @@ async function checkoutAll() {
 }
 
 function onHeaderClick(event: MouseEvent) {
-  if (props.draft) {
+  if (props.draft || props.forceExpanded) {
     return;
   }
   const target = event.target;
@@ -463,8 +465,9 @@ function onHeaderClick(event: MouseEvent) {
       <button
         class="chevron"
         type="button"
-        :class="{ open: group.expanded }"
-        :aria-expanded="group.expanded"
+        :class="{ open: expanded }"
+        :aria-expanded="expanded"
+        :disabled="forceExpanded"
         @click="draft ? undefined : toggleGroup(group.id)"
       >
         <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -672,7 +675,7 @@ function onHeaderClick(event: MouseEvent) {
     </div>
 
     <div
-      v-if="group.expanded && visibleRepos.length"
+      v-if="expanded && visibleRepos.length"
       class="group-body"
       :class="{ reordering: Boolean(draggingRepoId) }"
     >
@@ -688,7 +691,7 @@ function onHeaderClick(event: MouseEvent) {
         @reorder-start="(event, id) => emit('repoDragStart', event, id)"
       />
     </div>
-    <p v-else-if="group.expanded && !draft" class="muted tiny group-empty">
+    <p v-else-if="expanded && !draft" class="muted tiny group-empty">
       No repositories yet.
       <button class="link-button" type="button" @click="pickRepo">Add one</button>
     </p>
