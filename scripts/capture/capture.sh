@@ -1,478 +1,239 @@
 #!/bin/bash
-set -euo pipefail
-
-# Shipyard Screenshot and Demo Capture Script
-# Automates capturing screenshots and demo GIF for the README
+# Automated screenshot and demo GIF capture for the Shipyard README.
 #
-# Prerequisites:
-#   - macOS Screen Recording permission for Terminal
-#   - macOS Accessibility permission for Terminal
-#   - Shipyard.app installed at /Applications/Shipyard.app
-#   - ffmpeg installed (for GIF conversion)
+# Runs the installed Shipyard.app against throwaway demo repositories and an
+# isolated HOME, drives it with coordinate clicks, and writes:
+#   docs/screenshots/01-dashboard.png ... 05-settings.png
+#   docs/demo.gif
+#
+# Requirements (macOS, Apple Silicon):
+#   - /Applications/Shipyard.app
+#   - ffmpeg (brew install ffmpeg)
+#   - Accessibility and Screen Recording permission for the app running this
+#     script (Terminal, Cursor, ...). See scripts/capture/README.md.
 #
 # Usage:
-#   ./capture.sh [--dry-run] [--only <screenshot-name>]
+#   scripts/capture/capture.sh [--dry-run] [--only <name>]
+#   names: 01-dashboard 02-history 03-working-tree 04-branches 05-settings
+#
+# Safety:
+#   - Your real Shipyard keeps running and is never quit or killed. Every action
+#     targets only the instance started here, by process id.
+#   - Your real settings and repositories are untouched. HOME is redirected for
+#     the app's data directory, and the few webview keys that cannot be
+#     redirected are removed again (see localstorage.py).
+
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-DOCS_DIR="$PROJECT_ROOT/docs"
-SCREENSHOTS_DIR="$DOCS_DIR/screenshots"
+SCREENSHOTS_DIR="$PROJECT_ROOT/docs/screenshots"
+DEMO_GIF_PATH="$PROJECT_ROOT/docs/demo.gif"
 
-APP_PATH="/Applications/Shipyard.app"
-BUNDLE_ID="com.shipyard.app"
-APP_BINARY="$APP_PATH/Contents/MacOS/Shipyard"
+APP_BINARY="/Applications/Shipyard.app/Contents/MacOS/Shipyard"
+DEMO_DIR="/tmp/shipyard-demo-capture"   # keys mentioning this are purged from webview storage
+ISOLATED_HOME="/tmp/shipyard-capture-home"
 
 WINDOW_WIDTH=1440
 WINDOW_HEIGHT=900
+WINDOW_Y=40
+REF_WIDTH=1024   # click coordinates below are in a 1024x640 reference space
+REF_HEIGHT=640
 
 DRY_RUN=false
-ONLY_SCREENSHOT=""
+ONLY_SHOT=""
+APP_PID=""
+RECORD_PID=""
 
-# Parse arguments
+# ---------------------------------------------------------------- output ----
+BLUE=$'\033[34m'; GREEN=$'\033[32m'; RED=$'\033[31m'; YELLOW=$'\033[33m'; NC=$'\033[0m'
+info()    { echo "${BLUE}▸${NC} $*"; }
+success() { echo "${GREEN}✓${NC} $*"; }
+warn()    { echo "${YELLOW}!${NC} $*" >&2; }
+die()     { echo "${RED}✗${NC} $*" >&2; exit 1; }
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --dry-run)
-      DRY_RUN=true
-      shift
-      ;;
-    --only)
-      ONLY_SCREENSHOT="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      echo "Usage: $0 [--dry-run] [--only <screenshot-name>]" >&2
-      exit 1
-      ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    --only) ONLY_SHOT="${2:-}"; shift 2 ;;
+    --only=*) ONLY_SHOT="${1#*=}"; shift ;;
+    -h|--help) sed -n '2,28p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    *) die "Unknown option: $1" ;;
   esac
 done
 
-# Color output
-info() { echo "$(tput setaf 4)ℹ$(tput sgr0) $*"; }
-success() { echo "$(tput setaf 2)✓$(tput sgr0) $*"; }
-error() { echo "$(tput setaf 1)✗$(tput sgr0) $*" >&2; }
-warn() { echo "$(tput setaf 3)⚠$(tput sgr0) $*" >&2; }
-
-# Verify prerequisites
-check_prerequisites() {
-  info "Checking prerequisites..."
-  
-  if [[ ! -d "$APP_PATH" ]]; then
-    error "Shipyard.app not found at $APP_PATH"
-    exit 1
-  fi
-  
-  if ! command -v ffmpeg &> /dev/null; then
-    error "ffmpeg is required but not installed"
-    error "Install it with: brew install ffmpeg"
-    exit 1
-  fi
-  
-  success "Prerequisites satisfied"
-}
-
-# Clean up on exit
+# --------------------------------------------------------------- cleanup ----
 cleanup() {
-  info "Cleaning up..."
-  
-  # Quit the app if running
-  osascript -e "tell application \"Shipyard\" to quit" 2>/dev/null || true
-  
-  # Give it a moment to quit gracefully
-  sleep 1
-  
-  # Force kill if still running
-  pkill -9 -f "$APP_BINARY" 2>/dev/null || true
-  
-  # Clean up temporary directories
-  if [[ -n "${ISOLATED_HOME:-}" && -d "$ISOLATED_HOME" ]]; then
-    rm -rf "$ISOLATED_HOME"
+  local code=$?
+  [[ -n "$RECORD_PID" ]] && kill -INT "$RECORD_PID" 2>/dev/null || true
+  # Quit only the instance this script started.
+  if [[ -n "$APP_PID" ]] && kill -0 "$APP_PID" 2>/dev/null; then
+    kill "$APP_PID" 2>/dev/null || true
   fi
-  
-  if [[ -n "${DEMO_DIR:-}" && -d "$DEMO_DIR" ]]; then
-    rm -rf "$DEMO_DIR"
-  fi
+  python3 "$SCRIPT_DIR/localstorage.py" purge-demo 2>/dev/null || true
+  rm -rf "$ISOLATED_HOME" "$DEMO_DIR" 2>/dev/null || true
+  exit $code
 }
-
 trap cleanup EXIT
 
-# Generate demo data
-generate_demo_data() {
-  info "Generating demo Git repositories..."
-  
-  DEMO_DIR=$(mktemp -d -t shipyard-demo)
-  bash "$SCRIPT_DIR/generate-demo-data.sh" "$DEMO_DIR"
-  
-  success "Demo data generated in $DEMO_DIR"
+# --------------------------------------------------------- prerequisites ----
+[[ -x "$APP_BINARY" ]] || die "Shipyard.app not found at /Applications/Shipyard.app"
+command -v ffmpeg >/dev/null 2>&1 || die "ffmpeg is required: brew install ffmpeg"
+command -v python3 >/dev/null 2>&1 || die "python3 is required"
+
+# The app's webview storage is shared with a running real Shipyard. It is only
+# touched through localstorage.py (demo keys only), so running alongside is safe.
+if pgrep -xi shipyard >/dev/null 2>&1; then
+  warn "Shipyard is already running. It will not be touched; only the instance started here is controlled."
+fi
+
+# ------------------------------------------------------- app and demo data --
+python3 "$SCRIPT_DIR/localstorage.py" purge-demo || true
+
+info "Generating demo repositories in $DEMO_DIR"
+rm -rf "$DEMO_DIR" "$ISOLATED_HOME"
+bash "$SCRIPT_DIR/generate-demo-data.sh" "$DEMO_DIR" >/dev/null
+bash "$SCRIPT_DIR/seed-app-data.sh" "$DEMO_DIR" "$ISOLATED_HOME" >/dev/null
+success "Demo data ready"
+
+if [[ "$DRY_RUN" == true ]]; then
+  warn "Dry run: not launching the app or capturing anything"
+  exit 0
+fi
+
+# Screen size decides where the 1440x900 window can sit.
+read -r SCREEN_W SCREEN_H < <(osascript -l JavaScript -e 'ObjC.import("AppKit"); var f=$.NSScreen.mainScreen.frame; Math.round(f.size.width)+" "+Math.round(f.size.height)')
+(( SCREEN_W >= WINDOW_WIDTH + 24 && SCREEN_H >= WINDOW_HEIGHT + WINDOW_Y + 20 )) \
+  || die "Screen is ${SCREEN_W}x${SCREEN_H}; need at least $((WINDOW_WIDTH + 24))x$((WINDOW_HEIGHT + WINDOW_Y + 20)) for a ${WINDOW_WIDTH}x${WINDOW_HEIGHT} window"
+WINDOW_X=$(( (SCREEN_W - WINDOW_WIDTH) / 2 ))
+
+info "Launching Shipyard with an isolated HOME"
+HOME="$ISOLATED_HOME" "$APP_BINARY" >/dev/null 2>&1 &
+APP_PID=$!
+
+# ------------------------------------------------------------- helpers ------
+# Window id of the main window of the instance we started (by pid, so a real
+# running Shipyard is never picked).
+window_id() {
+  osascript -l JavaScript -e "ObjC.import('CoreGraphics');
+    var l=ObjC.deepUnwrap(ObjC.castRefToObject(\$.CGWindowListCopyWindowInfo(\$.kCGWindowListOptionOnScreenOnly,0)));
+    l.filter(w=>w.kCGWindowOwnerPID==$APP_PID&&w.kCGWindowLayer==0&&w.kCGWindowBounds.Width>500).map(w=>w.kCGWindowNumber).join('')" 2>/dev/null
 }
 
-# Set up isolated environment
-setup_isolated_environment() {
-  info "Setting up isolated app environment..."
-  
-  ISOLATED_HOME=$(mktemp -d -t shipyard-home)
-  bash "$SCRIPT_DIR/seed-app-data.sh" "$DEMO_DIR" "$ISOLATED_HOME"
-  
-  success "Isolated environment ready at $ISOLATED_HOME"
+app_sys_events() {  # run an AppleScript snippet "inside" our process
+  osascript -e "tell application \"System Events\" to tell (first process whose unix id is $APP_PID) to $1" 2>/dev/null
 }
 
-# Launch the app with isolated environment
-launch_app() {
-  info "Launching Shipyard with isolated environment..."
-  
-  # Launch with custom HOME to isolate app data
-  HOME="$ISOLATED_HOME" "$APP_BINARY" &> /dev/null &
-  APP_PID=$!
-  
-  info "App launched with PID $APP_PID"
-  
-  # Wait for app to be ready
-  info "Waiting for app window to appear..."
-  local max_wait=30
-  local waited=0
-  
-  while [[ $waited -lt $max_wait ]]; do
-    if swift "$SCRIPT_DIR/find-window-id.swift" "$BUNDLE_ID" &> /dev/null; then
-      success "App window ready"
-      sleep 2 # Extra settling time
-      return 0
-    fi
-    sleep 1
-    waited=$((waited + 1))
+bring_to_front() {
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $APP_PID) to true" 2>/dev/null || true
+    [[ "$(osascript -e 'tell application "System Events" to get unix id of first process whose frontmost is true' 2>/dev/null)" == "$APP_PID" ]] && return 0
+    sleep 0.3
   done
-  
-  error "App window did not appear within ${max_wait}s"
-  return 1
+  die "Could not bring Shipyard to the front"
 }
 
-# Get window ID
-get_window_id() {
-  swift "$SCRIPT_DIR/find-window-id.swift" "$BUNDLE_ID"
+# Click at a point in the 1024x640 reference space of the window.
+click_ref() {
+  local x=$(( WINDOW_X + $1 * WINDOW_WIDTH / REF_WIDTH ))
+  local y=$(( WINDOW_Y + $2 * WINDOW_HEIGHT / REF_HEIGHT ))
+  bring_to_front
+  osascript -e "tell application \"System Events\" to click at {$x, $y}" >/dev/null 2>&1 || true
+  sleep "${3:-1}"
 }
 
-# Position and resize the window
-setup_window() {
-  local window_id
-  window_id=$(get_window_id)
-  
-  info "Setting window size to ${WINDOW_WIDTH}x${WINDOW_HEIGHT} (window ID: $window_id)"
-  
-  # Use osascript to resize and position the window
-  osascript <<EOF
-tell application "System Events"
-  tell process "Shipyard"
-    set frontmost to true
-    tell window 1
-      set position to {100, 100}
-      set size to {$WINDOW_WIDTH, $WINDOW_HEIGHT}
-    end tell
-  end tell
-end tell
-EOF
-  
-  sleep 1
-  success "Window positioned and resized"
-}
+# Park the pointer somewhere harmless so no row or button shows a hover state.
+park_pointer() { click_ref 640 600 0.4; }
 
-# Capture a screenshot
-capture_screenshot() {
+capture() {
   local name="$1"
-  local filename="$2"
-  
-  if [[ "$DRY_RUN" == "true" ]]; then
-    info "[DRY RUN] Would capture: $name -> $filename"
-    return 0
-  fi
-  
-  if [[ -n "$ONLY_SCREENSHOT" && "$name" != "$ONLY_SCREENSHOT" ]]; then
-    return 0
-  fi
-  
-  info "Capturing: $name"
-  
-  local window_id
-  window_id=$(get_window_id)
-  
-  local output_path="$SCREENSHOTS_DIR/$filename"
-  
-  # Use screencapture with window ID to capture without shadow
-  screencapture -l "$window_id" -o -x "$output_path"
-  
-  if [[ -f "$output_path" ]]; then
-    local size
-    size=$(du -h "$output_path" | cut -f1)
-    success "Captured $name ($size): $filename"
-  else
-    error "Failed to capture $name"
-    return 1
-  fi
-}
-
-# Navigate using AppleScript/System Events
-navigate_to() {
-  local target="$1"
-  
-  info "Navigating to: $target"
-  
-  case "$target" in
-    dashboard)
-      # Click on "Repositories" tab or press Cmd+1
-      osascript <<'EOF'
-tell application "System Events"
-  tell process "Shipyard"
-    keystroke "1" using command down
-  end tell
-end tell
-EOF
-      ;;
-      
-    repo-first)
-      # Click on the first repository to open it
-      osascript <<'EOF'
-tell application "System Events"
-  tell process "Shipyard"
-    -- Find the first repo row in the groups list and click it
-    try
-      click button 1 of group 1 of group 1 of group 1 of group 1 of window 1
-    on error
-      -- Fallback: try double-clicking in the repo area
-      click at {400, 400}
-    end try
-  end tell
-end tell
-EOF
-      ;;
-      
-    history)
-      # Open history view - look for menu item or try keyboard shortcut
-      osascript <<'EOF'
-tell application "System Events"
-  tell process "Shipyard"
-    set frontmost to true
-    try
-      click menu item "History" of menu 1 of menu bar item "Window" of menu bar 1
-    on error
-      -- Fallback: try clicking the History button in status bar if visible
-      log "Could not find History menu item"
-    end try
-  end tell
-end tell
-EOF
-      ;;
-      
-    branches)
-      # Within a repo view, click on branches tab/section
-      osascript <<'EOF'
-tell application "System Events"
-  tell process "Shipyard"
-    keystroke "b" using {command down, shift down}
-  end tell
-end tell
-EOF
-      ;;
-      
-    settings)
-      # Open settings with Cmd+,
-      osascript <<'EOF'
-tell application "System Events"
-  tell process "Shipyard"
-    keystroke "," using command down
-  end tell
-end tell
-EOF
-      ;;
-      
-    *)
-      warn "Unknown navigation target: $target"
-      ;;
-  esac
-  
-  sleep 2 # Wait for UI to settle
-}
-
-# Click at specific coordinates (relative to window)
-click_at() {
-  local x="$1"
-  local y="$2"
-  
-  osascript <<EOF
-tell application "System Events"
-  tell process "Shipyard"
-    set frontmost to true
-    click at {$x, $y}
-  end tell
-end tell
-EOF
-  
-  sleep 1
-}
-
-# Capture all screenshots following the README's TODO list
-capture_all_screenshots() {
-  info "Starting screenshot capture sequence..."
-  
+  [[ -n "$ONLY_SHOT" && "$ONLY_SHOT" != "$name" ]] && return 0
   mkdir -p "$SCREENSHOTS_DIR"
-  
-  # Screenshot 1: Dashboard view with multiple repository groups
-  navigate_to dashboard
-  capture_screenshot "01-dashboard" "01-dashboard.png"
-  
-  # Screenshot 2: Commit history with visual graph and file changes
-  # First, open a repository
-  navigate_to repo-first
-  sleep 2
-  
-  # Click on a commit in the history list to show file changes
-  click_at 300 400
-  sleep 1
-  
-  capture_screenshot "02-history" "02-history.png"
-  
-  # Screenshot 3: Working tree with staged/unstaged changes and diff viewer
-  # The demo repos have working tree changes
-  # Click on the "Changes" or working tree tab
-  click_at 200 300
-  sleep 1
-  
-  capture_screenshot "03-working-tree" "03-working-tree.png"
-  
-  # Screenshot 4: Branch list with tracking information
-  navigate_to branches
-  capture_screenshot "04-branches" "04-branches.png"
-  
-  # Screenshot 5: Repository settings showing group configuration
-  navigate_to dashboard
-  sleep 1
-  
-  # Right-click on a group to open settings (if context menu available)
-  # Or use a settings button
-  click_at 1350 200 # Settings gear icon area
-  sleep 1
-  
-  capture_screenshot "05-settings" "05-settings.png"
-  
-  success "All screenshots captured!"
+  local wid; wid="$(window_id)"
+  [[ -n "$wid" ]] || die "No Shipyard window found for pid $APP_PID"
+  screencapture -l "$wid" -o "$SCREENSHOTS_DIR/$name.png" \
+    || die "screencapture failed (is Screen Recording allowed for this app?)"
+  success "Captured $name.png"
 }
 
-# Record demo video and convert to GIF
-record_demo() {
-  if [[ "$DRY_RUN" == "true" ]]; then
-    info "[DRY RUN] Would record demo video"
-    return 0
-  fi
-  
-  if [[ -n "$ONLY_SCREENSHOT" ]]; then
-    info "Skipping demo recording (--only specified)"
-    return 0
-  fi
-  
-  info "Recording demo video (10-15 seconds)..."
-  
-  local temp_video="/tmp/shipyard-demo-$$.mov"
-  local output_gif="$DOCS_DIR/demo.gif"
-  
-  # Navigate to dashboard to start
-  navigate_to dashboard
+# --------------------------------------------------------------- window -----
+for _ in $(seq 1 40); do [[ -n "$(window_id)" ]] && break; sleep 0.5; done
+[[ -n "$(window_id)" ]] || die "Shipyard window did not appear"
+sleep 2
+app_sys_events "tell window 1 to set position to {$WINDOW_X, $WINDOW_Y}"
+app_sys_events "tell window 1 to set size to {$WINDOW_WIDTH, $WINDOW_HEIGHT}"
+sleep 1.5
+bring_to_front
+success "Window ready (${WINDOW_WIDTH}x${WINDOW_HEIGHT} at $WINDOW_X,$WINDOW_Y)"
+
+# The first click after launch can be swallowed while the window activates.
+click_ref 640 600 0.5
+click_ref 640 600 0.5
+
+# ----------------------------------------------------------- screenshots ----
+# 1. Dashboard with groups
+park_pointer
+capture 01-dashboard
+
+# 2. Commit history with branch graph (open the first repository)
+click_ref 137 211 2.5
+park_pointer
+capture 02-history
+
+# 3. Working tree with a real diff (first unstaged file)
+click_ref 860 114 2
+park_pointer
+capture 03-working-tree
+
+# 4. Branches
+click_ref 30 67 1.5     # Back
+click_ref 108 90 1.5    # Branches tab
+park_pointer
+capture 04-branches
+
+# 5. Settings (gear, top right)
+click_ref 1011 36 2
+park_pointer
+capture 05-settings
+
+# ----------------------------------------------------------------- GIF ------
+if [[ -z "$ONLY_SHOT" ]]; then
+  info "Recording the demo GIF"
+  # Close the settings and repository tabs, then start from the dashboard.
+  click_ref 307 36 1
+  click_ref 224 36 1
+  click_ref 62 36 1.5
+
+  TEMP_VIDEO="/tmp/shipyard-demo-$$.mov"
+  PALETTE="/tmp/shipyard-palette-$$.png"
+  rm -f "$TEMP_VIDEO"
+  screencapture -v -R"$WINDOW_X,$WINDOW_Y,$WINDOW_WIDTH,$WINDOW_HEIGHT" "$TEMP_VIDEO" 2>/dev/null &
+  RECORD_PID=$!
+  sleep 1.5
+
+  click_ref 137 211 2.5    # open web-app-project
+  click_ref 330 260 2.5    # a commit
+  click_ref 30 67 1.5      # back
+  click_ref 860 114 2.5    # an unstaged file diff
+  click_ref 30 67 1.5      # back
+  click_ref 108 90 2.5     # branches
+  click_ref 180 90 2       # tags
+  click_ref 62 36 2.5      # back to the dashboard
+
+  kill -INT "$RECORD_PID" 2>/dev/null || true
+  wait "$RECORD_PID" 2>/dev/null || true
+  RECORD_PID=""
   sleep 1
-  
-  # Start recording with screencapture
-  info "Recording started - performing demo actions..."
-  
-  local window_id
-  window_id=$(get_window_id)
-  
-  # Start screen recording in background
-  # Note: screencapture -V requires the window to be visible
-  # Record for ~12 seconds
-  timeout 12s screencapture -v -V "$temp_video" 2>/dev/null || true &
-  local record_pid=$!
-  
-  sleep 2
-  
-  # Perform demo actions
-  # Action 1: Switch repos
-  click_at 300 300
-  sleep 2
-  
-  # Action 2: View some changes
-  click_at 250 350
-  sleep 2
-  
-  # Action 3: Navigate to history
-  navigate_to history
-  sleep 2
-  
-  # Action 4: Back to dashboard
-  navigate_to dashboard
-  sleep 2
-  
-  # Wait for recording to finish
-  wait $record_pid || true
-  
-  if [[ ! -f "$temp_video" ]]; then
-    error "Demo video recording failed"
-    return 1
-  fi
-  
-  success "Demo video recorded: $temp_video"
-  
-  # Convert to optimized GIF using ffmpeg with palettegen
-  info "Converting to optimized GIF (target: ~8 MB, 960px wide)..."
-  
-  local palette="/tmp/palette-$$.png"
-  
-  # Generate palette
-  ffmpeg -i "$temp_video" -vf "fps=15,scale=960:-1:flags=lanczos,palettegen=stats_mode=diff" -y "$palette" &> /dev/null
-  
-  # Generate GIF with palette
-  ffmpeg -i "$temp_video" -i "$palette" -filter_complex "fps=15,scale=960:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5" -y "$output_gif" &> /dev/null
-  
-  # Clean up
-  rm -f "$temp_video" "$palette"
-  
-  if [[ -f "$output_gif" ]]; then
-    local size
-    size=$(du -h "$output_gif" | cut -f1)
-    success "Demo GIF created: demo.gif ($size)"
-    
-    # Check if it's over 8 MB
-    local size_mb
-    size_mb=$(du -m "$output_gif" | cut -f1)
-    if [[ $size_mb -gt 8 ]]; then
-      warn "GIF size ($size) exceeds 8 MB target"
-    fi
-  else
-    error "Failed to create demo GIF"
-    return 1
-  fi
-}
+  [[ -s "$TEMP_VIDEO" ]] || die "Recording failed (is Screen Recording allowed for this app?)"
 
-# Main execution
-main() {
-  info "Shipyard Screenshot Capture Tool"
-  info "==============================="
-  echo
-  
-  check_prerequisites
-  
-  if [[ "$DRY_RUN" == "true" ]]; then
-    warn "Running in DRY RUN mode - no actual captures will be performed"
-  fi
-  
-  if [[ -n "$ONLY_SCREENSHOT" ]]; then
-    info "Only capturing screenshot: $ONLY_SCREENSHOT"
-  fi
-  
-  generate_demo_data
-  setup_isolated_environment
-  launch_app
-  setup_window
-  
-  capture_all_screenshots
-  record_demo
-  
-  success "All done! Screenshots saved to: $SCREENSHOTS_DIR"
-  success "Demo GIF saved to: $DOCS_DIR/demo.gif"
-}
+  ffmpeg -loglevel error -y -i "$TEMP_VIDEO" -vf "fps=12,scale=960:-1:flags=lanczos,palettegen=stats_mode=diff" "$PALETTE"
+  ffmpeg -loglevel error -y -i "$TEMP_VIDEO" -i "$PALETTE" \
+    -lavfi "fps=12,scale=960:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5" "$DEMO_GIF_PATH"
+  rm -f "$TEMP_VIDEO" "$PALETTE"
 
-main "$@"
+  size_bytes=$(stat -f%z "$DEMO_GIF_PATH")
+  success "Demo GIF created: docs/demo.gif ($((size_bytes / 1024)) KB)"
+  (( size_bytes > 8388608 )) && warn "GIF is over 8 MB; shorten the flow or lower the fps"
+fi
+
+success "Done. Review docs/screenshots/*.png and docs/demo.gif, then commit them."

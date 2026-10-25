@@ -23,6 +23,13 @@ cleanup() {
 # Trap errors and cleanup on exit
 trap cleanup EXIT
 
+# Never pick up the real user's git identity or config: merges, stashes and tags
+# would otherwise be attributed to them.
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_SYSTEM=/dev/null
+export GIT_AUTHOR_NAME="Alex Rivers" GIT_AUTHOR_EMAIL="alex@example.local"
+export GIT_COMMITTER_NAME="Alex Rivers" GIT_COMMITTER_EMAIL="alex@example.local"
+
 info "Creating demo repositories in $DEMO_DIR"
 rm -rf "$DEMO_DIR"
 mkdir -p "$DEMO_DIR"
@@ -35,11 +42,17 @@ FAKE_AUTHORS=(
   "Riley Park <riley@example.local>"
 )
 
+HOURS_AGO=200
+
 # Helper: Make a commit with a fake author
 fake_commit() {
   local message="$1"
   local author="${FAKE_AUTHORS[$((RANDOM % ${#FAKE_AUTHORS[@]}))]}"
-  local date_offset=$((RANDOM % 30 + 1)) # 1-30 days ago
+  # Walk time forward so history is chronological (about 40 days of activity)
+  HOURS_AGO=$((HOURS_AGO - (RANDOM % 8 + 3)))
+  [[ $HOURS_AGO -lt 3 ]] && HOURS_AGO=3
+  local fake_date
+  fake_date="$(date -v-${HOURS_AGO}H '+%Y-%m-%d %H:%M:%S')"
   
   GIT_AUTHOR_NAME="${author%% <*}" \
   GIT_AUTHOR_EMAIL="${author#*<}" \
@@ -47,15 +60,18 @@ fake_commit() {
   GIT_COMMITTER_NAME="${author%% <*}" \
   GIT_COMMITTER_EMAIL="${author#*<}" \
   GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL%>}" \
-  GIT_AUTHOR_DATE="$(date -v-${date_offset}d '+%Y-%m-%d %H:%M:%S')" \
-  GIT_COMMITTER_DATE="$(date -v-${date_offset}d '+%Y-%m-%d %H:%M:%S')" \
+  GIT_AUTHOR_DATE="$fake_date" \
+  GIT_COMMITTER_DATE="$fake_date" \
   git commit -m "$message" --quiet
+  # later merges and stashes reuse this date instead of "now"
+  export GIT_AUTHOR_DATE="$fake_date" GIT_COMMITTER_DATE="$fake_date"
 }
 
 # ============================================================================
 # Repository 1: Web Application Project
 # ============================================================================
 
+HOURS_AGO=200
 info "Creating repository 1: web-app-project"
 mkdir -p "$DEMO_DIR/web-app-project"
 cd "$DEMO_DIR/web-app-project"
@@ -173,14 +189,16 @@ done
 
 # Create tags
 git checkout main --quiet
-git tag -a v1.0.0 -m "Version 1.0.0 release" --quiet
-git tag -a v1.1.0 -m "Version 1.1.0 with auth system" --quiet
+git tag -a v1.0.0 -m "Version 1.0.0 release"
+git tag -a v1.1.0 -m "Version 1.1.0 with auth system"
 
 # Create a bare remote
 cd "$DEMO_DIR"
 git clone --bare web-app-project web-app-project.git --quiet
 cd web-app-project
 git remote add origin "$DEMO_DIR/web-app-project.git"
+git fetch origin --quiet
+git branch --set-upstream-to=origin/main main --quiet
 
 # Make local ahead of remote
 echo "// Local changes" >> src/main.js
@@ -188,6 +206,7 @@ git add .
 fake_commit "Local commit not yet pushed"
 
 # Create working tree changes
+mkdir -p src/components
 cat > src/components/NewFeature.vue << 'EOF'
 <template>
   <div>New feature component</div>
@@ -197,7 +216,34 @@ EOF
 echo "// Staged change" >> src/main.js
 git add src/main.js
 
-echo "// Unstaged change" >> src/auth/login.js
+cat > src/auth/login.js << 'EOF2'
+import { hashPassword, verifyHash } from './crypto'
+
+const MAX_ATTEMPTS = 5
+
+export async function login(username, password) {
+  if (!username || !password) {
+    throw new Error('Username and password are required')
+  }
+
+  const attempts = await getFailedAttempts(username)
+  if (attempts >= MAX_ATTEMPTS) {
+    throw new Error('Account temporarily locked')
+  }
+
+  const user = await findUser(username)
+  if (!user || !(await verifyHash(password, user.passwordHash))) {
+    await recordFailedAttempt(username)
+    throw new Error('Invalid credentials')
+  }
+
+  return startSession(user)
+}
+
+export function logout() {
+  clearSession()
+}
+EOF2
 
 echo "untracked-file.txt" > untracked-file.txt
 
@@ -207,6 +253,7 @@ success "Repository 1 complete: web-app-project"
 # Repository 2: API Server
 # ============================================================================
 
+HOURS_AGO=200
 info "Creating repository 2: api-server"
 mkdir -p "$DEMO_DIR/api-server"
 cd "$DEMO_DIR/api-server"
@@ -292,14 +339,16 @@ fake_commit "Apply security patch"
 git checkout main --quiet
 
 # Create tags
-git tag -a v2.0.0 -m "Version 2.0.0" --quiet
-git tag -a v2.1.0 -m "Version 2.1.0 with logging" --quiet
+git tag -a v2.0.0 -m "Version 2.0.0"
+git tag -a v2.1.0 -m "Version 2.1.0 with logging"
 
 # Create bare remote
 cd "$DEMO_DIR"
 git clone --bare api-server api-server.git --quiet
 cd api-server
 git remote add origin "$DEMO_DIR/api-server.git"
+git fetch origin --quiet
+git branch --set-upstream-to=origin/main main --quiet
 
 # Push some branches to remote
 git push origin main --quiet
@@ -334,6 +383,7 @@ success "Repository 2 complete: api-server"
 # Repository 3: Documentation Site
 # ============================================================================
 
+HOURS_AGO=200
 info "Creating repository 3: docs-site"
 mkdir -p "$DEMO_DIR/docs-site"
 cd "$DEMO_DIR/docs-site"
@@ -389,13 +439,15 @@ fake_commit "Improve site navigation"
 git checkout main --quiet
 
 # Create tag
-git tag -a v1.0 -m "First stable docs release" --quiet
+git tag -a v1.0 -m "First stable docs release"
 
 # Create bare remote
 cd "$DEMO_DIR"
 git clone --bare docs-site docs-site.git --quiet
 cd docs-site
 git remote add origin "$DEMO_DIR/docs-site.git"
+git fetch origin --quiet
+git branch --set-upstream-to=origin/main main --quiet
 git push origin main --quiet
 
 # Working tree state
@@ -409,6 +461,46 @@ Common questions and answers.
 EOF
 
 success "Repository 3 complete: docs-site"
+
+
+# ============================================================================
+# Extra repositories so the dashboard looks lived-in
+# ============================================================================
+
+make_simple_repo() {
+  local name="$1" branch_name="$2" commits="$3" dirty="$4" ahead="$5"
+  HOURS_AGO=200
+  info "Creating repository: $name"
+  mkdir -p "$DEMO_DIR/$name"
+  cd "$DEMO_DIR/$name"
+  git init --quiet -b main
+  echo "# $name" > README.md
+  git add . && fake_commit "Initial commit"
+  for ((i=1; i<=commits; i++)); do
+    echo "change $i" >> notes.txt
+    git add . && fake_commit "Improve $name (step $i)"
+  done
+  git checkout -b "$branch_name" --quiet
+  echo "wip" >> notes.txt && git add . && fake_commit "Work in progress on $branch_name"
+  git checkout main --quiet
+  cd "$DEMO_DIR"
+  git clone --bare "$name" "$name.git" --quiet
+  cd "$name"
+  git remote add origin "$DEMO_DIR/$name.git"
+  git fetch origin --quiet
+  git branch --set-upstream-to=origin/main main --quiet
+  for ((i=1; i<=ahead; i++)); do
+    echo "local $i" >> notes.txt && git add . && fake_commit "Local change $i"
+  done
+  for ((i=1; i<=dirty; i++)); do
+    echo "uncommitted $i" > "scratch-$i.txt"
+  done
+  cd "$DEMO_DIR"
+}
+
+make_simple_repo "mobile-client" "feature/offline-mode" 9 2 0
+make_simple_repo "infra-config" "chore/rotate-certs" 7 0 2
+make_simple_repo "deploy-tools" "feature/rollback" 6 1 0
 
 # ============================================================================
 # Summary

@@ -52,6 +52,34 @@ cat > "$APP_DATA_DIR/settings.json" << EOF
           "path": "$DEMO_DIR/api-server",
           "label": "API Server",
           "headerColor": ""
+        },
+        {
+          "id": "mobile-client",
+          "path": "$DEMO_DIR/mobile-client",
+          "label": "Mobile",
+          "headerColor": ""
+        }
+      ]
+    },
+    {
+      "id": "demo-group-2",
+      "name": "Infrastructure",
+      "expanded": true,
+      "pullFromBranch": "main",
+      "checkoutFallbacks": ["main"],
+      "headerColor": "#3f6b4f",
+      "repos": [
+        {
+          "id": "infra-config",
+          "path": "$DEMO_DIR/infra-config",
+          "label": "Infra",
+          "headerColor": ""
+        },
+        {
+          "id": "deploy-tools",
+          "path": "$DEMO_DIR/deploy-tools",
+          "label": "Deploy",
+          "headerColor": ""
         }
       ]
     }
@@ -66,6 +94,7 @@ cat > "$APP_DATA_DIR/settings.json" << EOF
   ],
   "dashboardOrder": [
     "demo-group-1",
+    "demo-group-2",
     "docs-site"
   ],
   "refreshIntervalSeconds": 300,
