@@ -242,7 +242,12 @@ fn global_write_path(file: Option<&Path>) -> PathBuf {
 
 fn run_git_config(git: &Path, args: &[&str], file: Option<&Path>) -> Result<GitOutput, String> {
     let cwd = config_cwd();
-    let extra = file.map(|path| vec![("GIT_CONFIG_GLOBAL", path), ("GIT_CONFIG_NOSYSTEM", Path::new("1"))]);
+    let extra = file.map(|path| {
+        vec![
+            ("GIT_CONFIG_GLOBAL", path),
+            ("GIT_CONFIG_NOSYSTEM", Path::new("1")),
+        ]
+    });
     run_git_command(git, &cwd, args, extra.as_deref().unwrap_or(&[]), true)
 }
 
@@ -366,7 +371,11 @@ pub fn update_git_config_value(git: &Path, key: &str, value: &str) -> Result<Git
     update_git_config_value_at(git, key, value, None)
 }
 
-fn write_git_config_at(git: &Path, contents: &str, file: Option<&Path>) -> Result<GitConfig, String> {
+fn write_git_config_at(
+    git: &Path,
+    contents: &str,
+    file: Option<&Path>,
+) -> Result<GitConfig, String> {
     if contents.len() > GIT_CONFIG_MAX_BYTES {
         return Err("Git config file is too large.".into());
     }
@@ -464,7 +473,9 @@ pub fn clone_repo(git: &Path, url: &str, parent: &Path, name: &str) -> Result<Pa
         ("GCM_INTERACTIVE", Path::new("Never")),
         (
             "GIT_SSH_COMMAND",
-            Path::new("ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new"),
+            Path::new(
+                "ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new",
+            ),
         ),
     ];
     let output = run_git_command(git, parent, &["clone", "--", url, dest_arg], &env, true)?;
@@ -520,7 +531,10 @@ fn run_network_git(
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GCM_INTERACTIVE", "Never")
-        .env("GIT_SSH_COMMAND", "ssh -o BatchMode=yes -o ConnectTimeout=8")
+        .env(
+            "GIT_SSH_COMMAND",
+            "ssh -o BatchMode=yes -o ConnectTimeout=8",
+        )
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
@@ -541,15 +555,26 @@ fn run_network_git(
             text
         })
     });
-    let collect_stderr =
-        |reader: Option<thread::JoinHandle<String>>| reader.and_then(|handle| handle.join().ok()).unwrap_or_default();
+    let collect_stderr = |reader: Option<thread::JoinHandle<String>>| {
+        reader
+            .and_then(|handle| handle.join().ok())
+            .unwrap_or_default()
+    };
 
     let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
                 let stderr = collect_stderr(stderr_reader);
-                command_log::record(repo, git, args, status.success(), started.elapsed(), "", &stderr);
+                command_log::record(
+                    repo,
+                    git,
+                    args,
+                    status.success(),
+                    started.elapsed(),
+                    "",
+                    &stderr,
+                );
                 return Ok(GitOutput {
                     stdout: String::new(),
                     stderr,
@@ -580,7 +605,12 @@ pub fn live_status(git: &Path, repo: &Path) -> Result<LiveStatus, String> {
     let output = run_git(
         git,
         repo,
-        &["status", "--porcelain=v2", "--branch", "--untracked-files=all"],
+        &[
+            "status",
+            "--porcelain=v2",
+            "--branch",
+            "--untracked-files=all",
+        ],
     )?;
     if !output.success {
         return Err(or_fallback(
@@ -659,7 +689,11 @@ fn working_tree_line_counts(git: &Path, repo: &Path) -> (u32, u32) {
         }
     }
 
-    if let Ok(output) = run_git(git, repo, &["ls-files", "--others", "--exclude-standard", "-z"]) {
+    if let Ok(output) = run_git(
+        git,
+        repo,
+        &["ls-files", "--others", "--exclude-standard", "-z"],
+    ) {
         if output.success {
             for rel in output.stdout.split('\0').filter(|path| !path.is_empty()) {
                 insertions += count_text_lines(&repo.join(rel));
@@ -701,13 +735,7 @@ fn ahead_behind_for_ref(git: &Path, repo: &Path, other: &str) -> (u32, u32) {
     ahead_behind_between(git, repo, "HEAD", other, true)
 }
 
-fn ahead_behind_between(
-    git: &Path,
-    repo: &Path,
-    left: &str,
-    right: &str,
-    log: bool,
-) -> (u32, u32) {
+fn ahead_behind_between(git: &Path, repo: &Path, left: &str, right: &str, log: bool) -> (u32, u32) {
     let spec = format!("{left}...{right}");
     let output = if log {
         run_git(git, repo, &["rev-list", "--left-right", "--count", &spec])
@@ -719,8 +747,14 @@ fn ahead_behind_between(
         _ => return (0, 0),
     };
     let mut parts = output.stdout.split_whitespace();
-    let ahead = parts.next().and_then(|value| value.parse().ok()).unwrap_or(0);
-    let behind = parts.next().and_then(|value| value.parse().ok()).unwrap_or(0);
+    let ahead = parts
+        .next()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
+    let behind = parts
+        .next()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
     (ahead, behind)
 }
 
@@ -829,9 +863,8 @@ fn remaining_conflicts(git: &Path, repo: &Path) -> Result<Vec<String>, String> {
 }
 
 pub fn abort_operation(git: &Path, repo: &Path) -> Result<String, String> {
-    let operation = current_operation(repo).ok_or_else(|| {
-        "No merge or rebase is in progress.".to_string()
-    })?;
+    let operation =
+        current_operation(repo).ok_or_else(|| "No merge or rebase is in progress.".to_string())?;
     let (args, fallback, success): (&[&str], &str, &str) = match operation {
         "rebase" => (
             &["rebase", "--abort"],
@@ -862,9 +895,8 @@ pub fn abort_operation(git: &Path, repo: &Path) -> Result<String, String> {
 }
 
 pub fn continue_operation(git: &Path, repo: &Path) -> Result<String, String> {
-    let operation = current_operation(repo).ok_or_else(|| {
-        "No merge or rebase is in progress.".to_string()
-    })?;
+    let operation =
+        current_operation(repo).ok_or_else(|| "No merge or rebase is in progress.".to_string())?;
     let leftover = remaining_conflicts(git, repo)?;
     if !leftover.is_empty() {
         return Err("Resolve remaining conflicts and mark them resolved first.".into());
@@ -918,9 +950,7 @@ pub fn open_in_editor(repo: &Path, file: &str, editor: &str) -> Result<(), Strin
     require_file_path(file)?;
     let path = repo.join(file);
     if !path.exists() {
-        return Err(
-            "That file is not on disk. It may have been deleted in this conflict.".into(),
-        );
+        return Err("That file is not on disk. It may have been deleted in this conflict.".into());
     }
     let mut command = Command::new("open");
     if let Some(app) = editor_app_name(editor) {
@@ -1041,10 +1071,8 @@ fn strip_git_suffix(value: &str) -> &str {
 fn browse_url_from_http(remote: &str) -> Option<String> {
     let (scheme, rest) = if let Some(rest) = strip_scheme_ignore_ascii_case(remote, "https://") {
         ("https", rest)
-    } else if let Some(rest) = strip_scheme_ignore_ascii_case(remote, "http://") {
-        ("http", rest)
     } else {
-        return None;
+        ("http", strip_scheme_ignore_ascii_case(remote, "http://")?)
     };
     let rest = strip_url_userinfo(rest);
     if rest.is_empty() || rest.starts_with('/') {
@@ -1462,12 +1490,8 @@ fn cherry_map(
                     index
                 };
                 let name = &names[index];
-                let containment = branch_cherry_containment(
-                    git,
-                    repo,
-                    &format!("refs/heads/{name}"),
-                    target,
-                );
+                let containment =
+                    branch_cherry_containment(git, repo, &format!("refs/heads/{name}"), target);
                 if let Ok(mut results) = results.lock() {
                     results.insert(name.clone(), containment);
                 }
@@ -1735,7 +1759,12 @@ fn delete_named_branches(
     })
 }
 
-pub fn delete_local_branch(git: &Path, repo: &Path, branch: &str, force: bool) -> Result<String, String> {
+pub fn delete_local_branch(
+    git: &Path,
+    repo: &Path,
+    branch: &str,
+    force: bool,
+) -> Result<String, String> {
     validate_ref(branch)?;
     let current = current_branch(git, repo)?;
     if current == branch {
@@ -2010,7 +2039,10 @@ pub fn pull_request_browse_url(browse: &str, branch: &str) -> Result<String, Str
             encode_url_component(branch, false)
         )
     } else if host.contains("bitbucket.") || host.ends_with("bitbucket.org") {
-        format!("/pull-requests/new?source={}", encode_url_component(branch, false))
+        format!(
+            "/pull-requests/new?source={}",
+            encode_url_component(branch, false)
+        )
     } else {
         format!("/compare/{}?expand=1", encode_url_component(branch, true))
     };
@@ -2021,7 +2053,11 @@ pub fn branch_pull_request_url(git: &Path, repo: &Path, branch: &str) -> Result<
     validate_ref(branch)?;
     let full = format!("refs/heads/{branch}");
     let output = run_git_quiet(git, repo, &["for-each-ref", "--format=%(upstream)", &full])?;
-    let upstream = if output.success { output.stdout.trim() } else { "" };
+    let upstream = if output.success {
+        output.stdout.trim()
+    } else {
+        ""
+    };
     let remote_branch = if upstream.is_empty() {
         let origin_ref = format!("refs/remotes/origin/{branch}");
         let exists = run_git_quiet(git, repo, &["show-ref", "--verify", "--quiet", &origin_ref])?;
@@ -2287,7 +2323,10 @@ pub fn checkout_with_fallbacks(
             }
             return Err(format!(
                 "{fetch_note}{}",
-                or_fallback(&combined_message(&output), &format!("Failed to check out {branch}"))
+                or_fallback(
+                    &combined_message(&output),
+                    &format!("Failed to check out {branch}")
+                )
             ));
         }
 
@@ -2343,7 +2382,10 @@ fn validate_remote_url(url: &str) -> Result<(), String> {
     if url.is_empty() {
         return Err("Enter a remote URL.".into());
     }
-    if url.len() > 2048 || url.starts_with('-') || url.chars().any(|c| c.is_whitespace() || c.is_control()) {
+    if url.len() > 2048
+        || url.starts_with('-')
+        || url.chars().any(|c| c.is_whitespace() || c.is_control())
+    {
         return Err("That doesn't look like a valid remote URL.".into());
     }
     Ok(())
@@ -2374,7 +2416,10 @@ fn remote_sort_rank(name: &str) -> u8 {
 pub fn list_remotes(git: &Path, repo: &Path) -> Result<Vec<RemoteEntry>, String> {
     let output = run_git(git, repo, &["remote", "-v"])?;
     if !output.success {
-        return Err(or_fallback(&combined_message(&output), "Could not list remotes."));
+        return Err(or_fallback(
+            &combined_message(&output),
+            "Could not list remotes.",
+        ));
     }
     let mut remotes: Vec<RemoteEntry> = Vec::new();
     for line in output.stdout.lines() {
@@ -2406,7 +2451,11 @@ pub fn list_remotes(git: &Path, repo: &Path) -> Result<Vec<RemoteEntry>, String>
     let refs = run_git_quiet(
         git,
         repo,
-        &["for-each-ref", "--format=%(refname)%00%(symref)", "refs/remotes"],
+        &[
+            "for-each-ref",
+            "--format=%(refname)%00%(symref)",
+            "refs/remotes",
+        ],
     )?;
     for entry in &mut remotes {
         if entry.push_url.is_empty() {
@@ -2520,7 +2569,11 @@ fn local_upstreams(git: &Path, repo: &Path) -> Vec<(String, String)> {
     let output = match run_git_quiet(
         git,
         repo,
-        &["for-each-ref", "--format=%(refname:short)%00%(upstream)", "refs/heads"],
+        &[
+            "for-each-ref",
+            "--format=%(refname:short)%00%(upstream)",
+            "refs/heads",
+        ],
     ) {
         Ok(output) if output.success => output,
         _ => return Vec::new(),
@@ -2652,7 +2705,12 @@ pub fn remote_branches(git: &Path, repo: &Path, remote: &str) -> Result<RemoteOv
     })
 }
 
-fn require_remote_branch(git: &Path, repo: &Path, remote: &str, branch: &str) -> Result<String, String> {
+fn require_remote_branch(
+    git: &Path,
+    repo: &Path,
+    remote: &str,
+    branch: &str,
+) -> Result<String, String> {
     require_remote(git, repo, remote)?;
     validate_ref(branch)?;
     let full = format!("refs/remotes/{remote}/{branch}");
@@ -2665,9 +2723,13 @@ fn require_remote_branch(git: &Path, repo: &Path, remote: &str, branch: &str) ->
 }
 
 fn is_ancestor(git: &Path, repo: &Path, ancestor: &str, descendant: &str) -> bool {
-    run_git_quiet(git, repo, &["merge-base", "--is-ancestor", ancestor, descendant])
-        .map(|output| output.success)
-        .unwrap_or(false)
+    run_git_quiet(
+        git,
+        repo,
+        &["merge-base", "--is-ancestor", ancestor, descendant],
+    )
+    .map(|output| output.success)
+    .unwrap_or(false)
 }
 
 pub fn checkout_remote_branch(
@@ -2794,7 +2856,9 @@ pub fn push_local_branch(git: &Path, repo: &Path, branch: &str) -> Result<String
         }
         _ => {
             if !has_origin_remote(git, repo) {
-                return Err(format!("{branch} doesn't track a remote and there is no origin to push to."));
+                return Err(format!(
+                    "{branch} doesn't track a remote and there is no origin to push to."
+                ));
             }
             let output = run_git(git, repo, &["push", "-u", "origin", branch])?;
             ("origin".to_string(), output)
@@ -2813,7 +2877,12 @@ pub fn push_local_branch(git: &Path, repo: &Path, branch: &str) -> Result<String
 }
 
 /// Deletes the branch on the remote server. The remote's default branch is refused.
-pub fn delete_remote_branch(git: &Path, repo: &Path, remote: &str, branch: &str) -> Result<String, String> {
+pub fn delete_remote_branch(
+    git: &Path,
+    repo: &Path,
+    remote: &str,
+    branch: &str,
+) -> Result<String, String> {
     require_remote_branch(git, repo, remote, branch)?;
     if remote_default_branch(git, repo, remote).as_deref() == Some(branch) {
         return Err(format!(
@@ -2836,7 +2905,11 @@ pub fn delete_remote_branch(git: &Path, repo: &Path, remote: &str, branch: &str)
     let _ = run_git_quiet(
         git,
         repo,
-        &["update-ref", "-d", &format!("refs/remotes/{remote}/{branch}")],
+        &[
+            "update-ref",
+            "-d",
+            &format!("refs/remotes/{remote}/{branch}"),
+        ],
     );
     Ok(format!("Deleted {branch} on {remote}"))
 }
@@ -3041,7 +3114,14 @@ fn restore_from_head(git: &Path, repo: &Path, file: &str, worktree: bool) -> Res
         run_git(
             git,
             repo,
-            &["restore", "--source=HEAD", "--staged", "--worktree", "--", file],
+            &[
+                "restore",
+                "--source=HEAD",
+                "--staged",
+                "--worktree",
+                "--",
+                file,
+            ],
         )?
     } else {
         run_git(
@@ -3431,9 +3511,11 @@ pub fn commit(
         (false, true) => run_git(git, repo, &["commit", "-m", title])?,
         (false, false) => run_git(git, repo, &["commit", "-m", title, "-m", description])?,
         (true, true) => run_git(git, repo, &["commit", "--amend", "-m", title])?,
-        (true, false) => {
-            run_git(git, repo, &["commit", "--amend", "-m", title, "-m", description])?
-        }
+        (true, false) => run_git(
+            git,
+            repo,
+            &["commit", "--amend", "-m", title, "-m", description],
+        )?,
     };
     if !output.success {
         return Err(or_fallback(
@@ -3523,7 +3605,10 @@ fn parse_name_status_line(line: &str) -> Option<CommitFile> {
     if first_path.is_empty() {
         return None;
     }
-    let second_path = parts.next().map(name_status_path).filter(|path| !path.is_empty());
+    let second_path = parts
+        .next()
+        .map(name_status_path)
+        .filter(|path| !path.is_empty());
     let (path, old_path) = match second_path {
         Some(new_path) => (new_path, Some(first_path)),
         None => (first_path, None),
@@ -3612,7 +3697,11 @@ fn parse_stash_line(line: &str) -> Option<StashEntry> {
 
 fn missing_stash_ref(message: &str) -> bool {
     let lower = message.to_ascii_lowercase();
-    lower.contains("refs/stash") && (lower.contains("unknown revision") || lower.contains("bad revision") || lower.contains("does not exist") || lower.contains("needed a single revision"))
+    lower.contains("refs/stash")
+        && (lower.contains("unknown revision")
+            || lower.contains("bad revision")
+            || lower.contains("does not exist")
+            || lower.contains("needed a single revision"))
 }
 
 pub fn stash_list(git: &Path, repo: &Path) -> Result<Vec<StashEntry>, String> {
@@ -3756,7 +3845,11 @@ pub fn stash_changes(git: &Path, repo: &Path, hash: &str) -> Result<Vec<CommitFi
         .collect();
 
     if let Some(untracked) = nth_parent(git, repo, &hash, 3)? {
-        let output = run_git(git, repo, &["ls-tree", "-r", "--name-only", "-z", &untracked])?;
+        let output = run_git(
+            git,
+            repo,
+            &["ls-tree", "-r", "--name-only", "-z", &untracked],
+        )?;
         if !output.success {
             return Err(or_fallback(
                 &combined_message(&output),
@@ -4155,7 +4248,10 @@ fn parse_blame_porcelain(stdout: &str) -> Vec<BlameLine> {
             let mut parts = raw.split_whitespace();
             current_hash = parts.next().unwrap_or_default().to_string();
             let _orig = parts.next();
-            current_final = parts.next().and_then(|value| value.parse().ok()).unwrap_or(0);
+            current_final = parts
+                .next()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(0);
             pending = commits.get(&current_hash).cloned().unwrap_or_default();
             continue;
         }
@@ -4316,7 +4412,13 @@ pub fn repo_files(git: &Path, repo: &Path) -> Result<Vec<RepoFile>, String> {
     let tracked_ignored = ls_files_z(
         git,
         repo,
-        &["ls-files", "--cached", "--ignored", "--exclude-standard", "-z"],
+        &[
+            "ls-files",
+            "--cached",
+            "--ignored",
+            "--exclude-standard",
+            "-z",
+        ],
     )?;
     let deleted: HashSet<String> = ls_files_z(git, repo, &["ls-files", "--deleted", "-z"])?
         .into_iter()
@@ -4693,7 +4795,10 @@ pub fn stage_files(git: &Path, repo: &Path, files: &[&str]) -> Result<(), String
     args.extend(files);
     let output = run_git(git, repo, &args)?;
     if !output.success {
-        return Err(or_fallback(&combined_message(&output), "Failed to stage files."));
+        return Err(or_fallback(
+            &combined_message(&output),
+            "Failed to stage files.",
+        ));
     }
     Ok(())
 }
@@ -4701,7 +4806,10 @@ pub fn stage_files(git: &Path, repo: &Path, files: &[&str]) -> Result<(), String
 pub fn stage_all(git: &Path, repo: &Path) -> Result<(), String> {
     let output = run_git(git, repo, &["add", "-A"])?;
     if !output.success {
-        return Err(or_fallback(&combined_message(&output), "Failed to stage all files."));
+        return Err(or_fallback(
+            &combined_message(&output),
+            "Failed to stage all files.",
+        ));
     }
     Ok(())
 }
@@ -4777,9 +4885,8 @@ pub fn file_diff(git: &Path, repo: &Path, file: &str, staged: bool) -> Result<St
 
 fn untracked_diff(repo: &Path, file: &str) -> Result<String, String> {
     let absolute = repo.join(file);
-    let contents = std::fs::read_to_string(&absolute).map_err(|err| {
-        format!("Could not read untracked file {file}: {err}")
-    })?;
+    let contents = std::fs::read_to_string(&absolute)
+        .map_err(|err| format!("Could not read untracked file {file}: {err}"))?;
     let lines: Vec<&str> = contents.lines().collect();
     let count = lines.len().max(1);
     let mut diff = format!(
@@ -4857,7 +4964,10 @@ mod tests {
         fs::write(repo.join("README.md"), "changed\n").unwrap();
         let dirty = live_status(&git_bin(), &repo).unwrap();
         assert!(dirty.dirty);
-        assert_eq!((dirty.insertions, dirty.deletions, dirty.changed_files), (1, 1, 1));
+        assert_eq!(
+            (dirty.insertions, dirty.deletions, dirty.changed_files),
+            (1, 1, 1)
+        );
         fs::write(repo.join("new.txt"), "one\ntwo\n").unwrap();
         let with_untracked = live_status(&git_bin(), &repo).unwrap();
         assert_eq!(
@@ -4869,7 +4979,9 @@ mod tests {
             (3, 1, 2)
         );
         let files = working_tree(&git_bin(), &repo).unwrap();
-        assert!(files.iter().any(|file| file.path == "README.md" && !file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && !file.staged));
         assert!(!files.iter().any(|file| file.staged));
     }
 
@@ -4880,7 +4992,10 @@ mod tests {
         let url = source.to_str().unwrap();
         let dest = clone_repo(&git_bin(), url, &parent, "copy").unwrap();
         assert_eq!(dest, parent.join("copy"));
-        assert_eq!(fs::read_to_string(dest.join("README.md")).unwrap(), "hello\n");
+        assert_eq!(
+            fs::read_to_string(dest.join("README.md")).unwrap(),
+            "hello\n"
+        );
         assert_eq!(current_branch(&git_bin(), &dest).unwrap(), "develop");
 
         let err = clone_repo(&git_bin(), url, &parent, "copy").unwrap_err();
@@ -4899,8 +5014,15 @@ mod tests {
         for name in ["", ".", "..", "a/b", "a\\b"] {
             assert!(clone_repo(&git, "https://example.com/r.git", &parent, name).is_err());
         }
-        assert!(clone_repo(&git, "https://example.com/r.git", &parent.join("missing"), "repo").is_err());
-        let err = clone_repo(&git, parent.join("nope").to_str().unwrap(), &parent, "repo").unwrap_err();
+        assert!(clone_repo(
+            &git,
+            "https://example.com/r.git",
+            &parent.join("missing"),
+            "repo"
+        )
+        .is_err());
+        let err =
+            clone_repo(&git, parent.join("nope").to_str().unwrap(), &parent, "repo").unwrap_err();
         assert!(!err.is_empty());
         assert!(!parent.join("repo").exists());
     }
@@ -4915,9 +5037,15 @@ mod tests {
         let denied = clone_error_message(&output(
             "git@github.com: Permission denied (publickey).\nfatal: Could not read from remote repository.",
         ));
-        assert!(denied.starts_with("git@github.com: Permission denied"), "{denied}");
+        assert!(
+            denied.starts_with("git@github.com: Permission denied"),
+            "{denied}"
+        );
         assert!(denied.contains("ssh-add"), "{denied}");
-        assert_eq!(clone_error_message(&output("fatal: repository not found")), "fatal: repository not found");
+        assert_eq!(
+            clone_error_message(&output("fatal: repository not found")),
+            "fatal: repository not found"
+        );
         assert_eq!(clone_error_message(&output("")), "Clone failed.");
     }
 
@@ -4935,15 +5063,33 @@ mod tests {
         fs::write(repo.join("ignored.txt"), "nope\n").unwrap();
         fs::create_dir_all(repo.join("build")).unwrap();
         fs::write(repo.join("build/out.js"), "ignored dir\n").unwrap();
-        fs::write(repo.join(".gitignore"), "ignored.txt\nbuild/\ntracked.ignore\n").unwrap();
+        fs::write(
+            repo.join(".gitignore"),
+            "ignored.txt\nbuild/\ntracked.ignore\n",
+        )
+        .unwrap();
         let files = repo_files(&git_bin(), &repo).unwrap();
-        assert!(files.iter().any(|file| file.path == "README.md" && !file.ignored));
-        assert!(files.iter().any(|file| file.path == "src/app.ts" && !file.ignored));
-        assert!(files.iter().any(|file| file.path == "src/new.ts" && !file.ignored));
-        assert!(files.iter().any(|file| file.path == ".gitignore" && !file.ignored));
-        assert!(files.iter().any(|file| file.path == "ignored.txt" && file.ignored && !file.directory));
-        assert!(files.iter().any(|file| file.path == "build" && file.ignored && file.directory));
-        assert!(files.iter().any(|file| file.path == "tracked.ignore" && file.ignored));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && !file.ignored));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "src/app.ts" && !file.ignored));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "src/new.ts" && !file.ignored));
+        assert!(files
+            .iter()
+            .any(|file| file.path == ".gitignore" && !file.ignored));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "ignored.txt" && file.ignored && !file.directory));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "build" && file.ignored && file.directory));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "tracked.ignore" && file.ignored));
         assert!(!files.iter().any(|file| file.path == "build/out.js"));
     }
 
@@ -4955,7 +5101,9 @@ mod tests {
         git(&repo, &["commit", "-m", "add icon"]);
         fs::rename(repo.join("icon.jpg"), repo.join("icon.jpg123")).unwrap();
         let files = repo_files(&git_bin(), &repo).unwrap();
-        assert!(files.iter().any(|file| file.path == "icon.jpg123" && !file.ignored));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "icon.jpg123" && !file.ignored));
         assert!(!files.iter().any(|file| file.path == "icon.jpg"));
     }
 
@@ -4967,9 +5115,15 @@ mod tests {
         git(&repo, &["commit", "-m", "update readme"]);
         let commits = file_log(&git_bin(), &repo, "README.md").unwrap();
         assert!(commits.iter().any(|commit| commit.subject == "initial"));
-        assert!(commits.iter().any(|commit| commit.subject == "update readme"));
-        assert!(commits.iter().all(|commit| commit.path.as_deref() == Some("README.md")));
-        assert!(file_log(&git_bin(), &repo, "missing.txt").unwrap().is_empty());
+        assert!(commits
+            .iter()
+            .any(|commit| commit.subject == "update readme"));
+        assert!(commits
+            .iter()
+            .all(|commit| commit.path.as_deref() == Some("README.md")));
+        assert!(file_log(&git_bin(), &repo, "missing.txt")
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -5161,9 +5315,15 @@ filename README.md
 
     #[test]
     fn ignore_helpers_read_name_extension_and_folder() {
-        assert_eq!(file_name("scripts/find-email-inserts.sh"), "find-email-inserts.sh");
+        assert_eq!(
+            file_name("scripts/find-email-inserts.sh"),
+            "find-email-inserts.sh"
+        );
         assert_eq!(file_extension("scripts/find-email-inserts.sh"), ".sh");
-        assert_eq!(parent_folder_name("scripts/find-email-inserts.sh"), "scripts");
+        assert_eq!(
+            parent_folder_name("scripts/find-email-inserts.sh"),
+            "scripts"
+        );
         assert_eq!(file_extension(".env"), "");
         assert_eq!(file_extension(".env.local"), ".local");
         assert_eq!(file_extension("Makefile"), "");
@@ -5188,7 +5348,9 @@ filename README.md
         fs::write(repo.join("tmp/scratch.txt"), "scratch\n").unwrap();
         ignore_working_tree_path(&git_bin(), &repo, "tmp/scratch.txt", "folder").unwrap();
         let after_folder = working_tree(&git_bin(), &repo).unwrap();
-        assert!(!after_folder.iter().any(|file| file.path.starts_with("tmp/")));
+        assert!(!after_folder
+            .iter()
+            .any(|file| file.path.starts_with("tmp/")));
         assert!(fs::read_to_string(repo.join(".gitignore"))
             .unwrap()
             .contains("tmp/"));
@@ -5241,7 +5403,10 @@ filename README.md
 
         stash_files(&git_bin(), &repo, &["README.md"], "").unwrap();
         assert!(working_tree(&git_bin(), &repo).unwrap().is_empty());
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "hello\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "hello\n"
+        );
         let stashes = stash_list(&git_bin(), &repo).unwrap();
         assert_eq!(stashes.len(), 2);
         assert!(stashes[0].message.starts_with("WIP on "));
@@ -5301,28 +5466,44 @@ filename README.md
         fs::write(repo.join("README.md"), "changed\n").unwrap();
 
         let files = working_tree(&git_bin(), &repo).unwrap();
-        assert!(files.iter().any(|file| file.path == "new.txt" && !file.staged && file.untracked));
-        assert!(files.iter().any(|file| file.path == "README.md" && !file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "new.txt" && !file.staged && file.untracked));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && !file.staged));
         assert!(!files.iter().any(|file| file.staged));
 
         stage_files(&git_bin(), &repo, &["new.txt"]).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
-        assert!(files.iter().any(|file| file.path == "new.txt" && file.staged));
-        assert!(!files.iter().any(|file| file.path == "new.txt" && !file.staged));
-        assert!(files.iter().any(|file| file.path == "README.md" && !file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "new.txt" && file.staged));
+        assert!(!files
+            .iter()
+            .any(|file| file.path == "new.txt" && !file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && !file.staged));
 
         stage_all(&git_bin(), &repo).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(files.iter().all(|file| file.staged));
-        assert!(files.iter().any(|file| file.path == "README.md" && file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && file.staged));
 
         let staged_diff = file_diff(&git_bin(), &repo, "README.md", true).unwrap();
         assert!(staged_diff.contains("-hello") || staged_diff.contains("+changed"));
 
         unstage_files(&git_bin(), &repo, &["new.txt"]).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
-        assert!(files.iter().any(|file| file.path == "new.txt" && !file.staged));
-        assert!(!files.iter().any(|file| file.path == "new.txt" && file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "new.txt" && !file.staged));
+        assert!(!files
+            .iter()
+            .any(|file| file.path == "new.txt" && file.staged));
 
         unstage_all(&git_bin(), &repo).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
@@ -5360,7 +5541,10 @@ filename README.md
 
         fs::write(repo.join("README.md"), "updated\n").unwrap();
         git(&repo, &["add", "README.md"]);
-        git(&repo, &["commit", "-m", "Update readme", "-m", "More detail."]);
+        git(
+            &repo,
+            &["commit", "-m", "Update readme", "-m", "More detail."],
+        );
         let last = last_commit(&git_bin(), &repo).unwrap();
         assert_eq!(last.title, "Update readme");
         assert_eq!(last.description, "More detail.");
@@ -5425,11 +5609,20 @@ filename README.md
         assert_eq!(last_commit(&git_bin(), &work).unwrap().title, "initial");
 
         let files = working_tree(&git_bin(), &work).unwrap();
-        assert!(files.iter().any(|file| file.path == "one.txt" && file.staged));
-        assert!(files.iter().any(|file| file.path == "two.txt" && file.staged));
-        assert!(files.iter().any(|file| file.path == "README.md" && !file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "one.txt" && file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "two.txt" && file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && !file.staged));
         assert_eq!(fs::read_to_string(work.join("one.txt")).unwrap(), "first\n");
-        assert_eq!(fs::read_to_string(work.join("README.md")).unwrap(), "dirty\n");
+        assert_eq!(
+            fs::read_to_string(work.join("README.md")).unwrap(),
+            "dirty\n"
+        );
 
         assert!(reset_unpushed_commits(&git_bin(), &work).is_err());
         assert!(reset_unpushed_commits(&git_bin(), &upstream).is_err());
@@ -5485,9 +5678,14 @@ filename README.md
         let created =
             create_and_checkout_branch(&git_bin(), &repo, "task/from-develop", "develop").unwrap();
         assert!(created.contains("task/from-develop"));
-        assert_eq!(current_branch(&git_bin(), &repo).unwrap(), "task/from-develop");
+        assert_eq!(
+            current_branch(&git_bin(), &repo).unwrap(),
+            "task/from-develop"
+        );
         assert_eq!(git(&repo, &["rev-parse", "HEAD"]).stdout.trim(), base_hash);
-        assert!(create_and_checkout_branch(&git_bin(), &repo, "task/missing-base", "nope").is_err());
+        assert!(
+            create_and_checkout_branch(&git_bin(), &repo, "task/missing-base", "nope").is_err()
+        );
 
         let empty = temp_dir();
         git(&empty, &["init", "-b", "develop"]);
@@ -5495,7 +5693,9 @@ filename README.md
             create_and_checkout_branch(&git_bin(), &empty, "feature", "develop").unwrap();
         assert!(from_current.contains("feature"));
         assert_eq!(
-            git(&empty, &["symbolic-ref", "--short", "HEAD"]).stdout.trim(),
+            git(&empty, &["symbolic-ref", "--short", "HEAD"])
+                .stdout
+                .trim(),
             "feature"
         );
     }
@@ -5534,7 +5734,10 @@ filename README.md
                 || onto_current.to_lowercase().contains("fast-forward")
                 || onto_current.contains("other")
         );
-        assert_eq!(fs::read_to_string(repo.join("other.txt")).unwrap(), "other\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("other.txt")).unwrap(),
+            "other\n"
+        );
 
         assert!(merge_local_branch(&git_bin(), &repo, "develop", "develop").is_err());
         assert!(merge_local_branch(&git_bin(), &repo, "missing", "develop").is_err());
@@ -5592,7 +5795,10 @@ filename README.md
         git(&repo, &["add", "feature.txt"]);
         git(&repo, &["commit", "-m", "feature work"]);
         git(&repo, &["checkout", "develop"]);
-        git(&repo, &["merge", "--no-ff", "-m", "merge feature", "feature"]);
+        git(
+            &repo,
+            &["merge", "--no-ff", "-m", "merge feature", "feature"],
+        );
 
         let overview = branch_overview_with(&git_bin(), &repo, Some("develop"), true).unwrap();
         assert_eq!(overview.merge_target.as_deref(), Some("develop"));
@@ -5759,10 +5965,7 @@ filename README.md
                 .map(|branch| branch.name.clone())
                 .collect::<Vec<_>>()
         };
-        assert_eq!(
-            names(&snapshot),
-            vec!["develop", "aaa", "mid", "zzz"]
-        );
+        assert_eq!(names(&snapshot), vec!["develop", "aaa", "mid", "zzz"]);
         assert_eq!(names(&snapshot), names(&classified));
         let aaa = classified
             .branches
@@ -5817,7 +6020,10 @@ filename README.md
         git(&repo, &["add", "feature.txt"]);
         git(&repo, &["commit", "-m", "feature work"]);
         git(&repo, &["checkout", "develop"]);
-        git(&repo, &["merge", "--no-ff", "-m", "merge feature", "feature"]);
+        git(
+            &repo,
+            &["merge", "--no-ff", "-m", "merge feature", "feature"],
+        );
         git(&repo, &["checkout", "other"]);
 
         let refused =
@@ -5846,7 +6052,10 @@ filename README.md
             git(&repo, &["add", &format!("{name}.txt")]);
             git(&repo, &["commit", "-m", name]);
             git(&repo, &["checkout", "develop"]);
-            git(&repo, &["merge", "--no-ff", "-m", &format!("merge {name}"), name]);
+            git(
+                &repo,
+                &["merge", "--no-ff", "-m", &format!("merge {name}"), name],
+            );
         }
 
         let deleted =
@@ -5894,10 +6103,8 @@ filename README.md
             stderr: "error: The branch 'three' is not fully merged.\nIf you are sure you want to delete it, run 'git branch -D three'.\n".into(),
             success: false,
         };
-        let (deleted, refused, errors) = classify_branch_delete_output(
-            &["one".into(), "two".into(), "three".into()],
-            &output,
-        );
+        let (deleted, refused, errors) =
+            classify_branch_delete_output(&["one".into(), "two".into(), "three".into()], &output);
         assert_eq!(deleted, vec!["one".to_string(), "two".to_string()]);
         assert_eq!(refused, vec!["three".to_string()]);
         assert!(errors.is_empty());
@@ -5907,7 +6114,10 @@ filename README.md
         let seed = init_repo();
         let origin = temp_dir();
         git(&origin, &["init", "--bare", "-b", "develop"]);
-        git(&seed, &["remote", "add", "origin", origin.to_str().unwrap()]);
+        git(
+            &seed,
+            &["remote", "add", "origin", origin.to_str().unwrap()],
+        );
         git(&seed, &["push", "-u", "origin", "develop"]);
 
         let work = temp_dir();
@@ -5935,11 +6145,17 @@ filename README.md
         let seed = init_repo();
         let upstream = temp_dir();
         git(&upstream, &["init", "--bare", "-b", "develop"]);
-        git(&seed, &["remote", "add", "origin", upstream.to_str().unwrap()]);
+        git(
+            &seed,
+            &["remote", "add", "origin", upstream.to_str().unwrap()],
+        );
         git(&seed, &["push", "-u", "origin", "develop"]);
 
         let origin = temp_dir();
-        git(&origin, &["clone", "--bare", upstream.to_str().unwrap(), "."]);
+        git(
+            &origin,
+            &["clone", "--bare", upstream.to_str().unwrap(), "."],
+        );
 
         let work = temp_dir();
         git(&work, &["clone", origin.to_str().unwrap(), "."]);
@@ -5950,7 +6166,10 @@ filename README.md
         let upstream_dev = temp_dir();
         git(&upstream_dev, &["clone", upstream.to_str().unwrap(), "."]);
         git(&upstream_dev, &["config", "user.name", "Shipyard Test"]);
-        git(&upstream_dev, &["config", "user.email", "test@shipyard.local"]);
+        git(
+            &upstream_dev,
+            &["config", "user.email", "test@shipyard.local"],
+        );
         Fork {
             origin,
             upstream_dev,
@@ -5969,7 +6188,10 @@ filename README.md
         assert!(validate_remote_name("upstream").is_ok());
         assert!(validate_remote_name("my-fork_2.old").is_ok());
         for bad in ["", "-x", ".x", "a b", "a/b", "x.lock", "a;b"] {
-            assert!(validate_remote_name(bad).is_err(), "{bad} should be rejected");
+            assert!(
+                validate_remote_name(bad).is_err(),
+                "{bad} should be rejected"
+            );
         }
         assert!(validate_remote_url("--upload-pack=evil").is_err());
         assert!(validate_remote_url("git@github.com:owner/repo.git").is_ok());
@@ -5996,7 +6218,10 @@ filename README.md
         let develop = &overview.branches[0];
         assert_eq!(develop.name, "develop");
         assert_eq!(develop.local.as_deref(), Some("develop"));
-        assert!(!develop.tracked, "local develop tracks origin, not upstream");
+        assert!(
+            !develop.tracked,
+            "local develop tracks origin, not upstream"
+        );
         assert!(develop.current);
         assert_eq!((develop.ahead, develop.behind), (0, 2));
 
@@ -6010,8 +6235,15 @@ filename README.md
         let fork = fork_with_upstream();
         land_upstream_commit(&fork, "sync.txt");
 
-        let message =
-            merge_remote_branch(&git_bin(), &fork.work, "upstream", "develop", "develop", false).unwrap();
+        let message = merge_remote_branch(
+            &git_bin(),
+            &fork.work,
+            "upstream",
+            "develop",
+            "develop",
+            false,
+        )
+        .unwrap();
         assert!(message.starts_with("Fast-forwarded develop"), "{message}");
         assert!(fork.work.join("sync.txt").exists());
 
@@ -6020,8 +6252,15 @@ filename README.md
         let upstream_tip = git(&fork.upstream_dev, &["rev-parse", "HEAD"]).stdout;
         assert_eq!(origin_tip, upstream_tip);
 
-        let again =
-            merge_remote_branch(&git_bin(), &fork.work, "upstream", "develop", "develop", false).unwrap();
+        let again = merge_remote_branch(
+            &git_bin(),
+            &fork.work,
+            "upstream",
+            "develop",
+            "develop",
+            false,
+        )
+        .unwrap();
         assert!(again.contains("already has everything"), "{again}");
     }
 
@@ -6031,7 +6270,15 @@ filename README.md
         git(&fork.work, &["checkout", "-b", "feature"]);
         land_upstream_commit(&fork, "ff.txt");
 
-        merge_remote_branch(&git_bin(), &fork.work, "upstream", "develop", "develop", false).unwrap();
+        merge_remote_branch(
+            &git_bin(),
+            &fork.work,
+            "upstream",
+            "develop",
+            "develop",
+            false,
+        )
+        .unwrap();
         assert_eq!(current_branch(&git_bin(), &fork.work).unwrap(), "feature");
         let develop = git(&fork.work, &["rev-parse", "develop"]).stdout;
         let upstream = git(&fork.work, &["rev-parse", "upstream/develop"]).stdout;
@@ -6045,13 +6292,27 @@ filename README.md
         commit_file(&fork.work, "local.txt", "local\n");
         land_upstream_commit(&fork, "remote.txt");
 
-        let err = merge_remote_branch(&git_bin(), &fork.work, "upstream", "develop", "develop", false)
-            .unwrap_err();
+        let err = merge_remote_branch(
+            &git_bin(),
+            &fork.work,
+            "upstream",
+            "develop",
+            "develop",
+            false,
+        )
+        .unwrap_err();
         assert!(err.starts_with(NOT_FAST_FORWARD_PREFIX), "{err}");
         assert!(!fork.work.join("remote.txt").exists());
 
-        let message =
-            merge_remote_branch(&git_bin(), &fork.work, "upstream", "develop", "develop", true).unwrap();
+        let message = merge_remote_branch(
+            &git_bin(),
+            &fork.work,
+            "upstream",
+            "develop",
+            "develop",
+            true,
+        )
+        .unwrap();
         assert!(message.starts_with("Merged upstream/develop"), "{message}");
         assert!(fork.work.join("remote.txt").exists());
         assert!(fork.work.join("local.txt").exists());
@@ -6060,18 +6321,31 @@ filename README.md
     #[test]
     fn checkout_remote_branch_asks_for_a_name_when_local_exists() {
         let fork = fork_with_upstream();
-        let err = checkout_remote_branch(&git_bin(), &fork.work, "upstream", "develop", None).unwrap_err();
+        let err = checkout_remote_branch(&git_bin(), &fork.work, "upstream", "develop", None)
+            .unwrap_err();
         assert!(err.starts_with(LOCAL_BRANCH_EXISTS_PREFIX), "{err}");
 
-        checkout_remote_branch(&git_bin(), &fork.work, "upstream", "develop", Some("upstream-develop"))
-            .unwrap();
-        assert_eq!(current_branch(&git_bin(), &fork.work).unwrap(), "upstream-develop");
+        checkout_remote_branch(
+            &git_bin(),
+            &fork.work,
+            "upstream",
+            "develop",
+            Some("upstream-develop"),
+        )
+        .unwrap();
+        assert_eq!(
+            current_branch(&git_bin(), &fork.work).unwrap(),
+            "upstream-develop"
+        );
         let upstream = git(&fork.work, &["rev-parse", "--abbrev-ref", "@{upstream}"]).stdout;
         assert_eq!(upstream.trim(), "upstream/develop");
 
         git(&fork.work, &["checkout", "develop"]);
         checkout_remote_branch(&git_bin(), &fork.work, "upstream", "develop", None).unwrap();
-        assert_eq!(current_branch(&git_bin(), &fork.work).unwrap(), "upstream-develop");
+        assert_eq!(
+            current_branch(&git_bin(), &fork.work).unwrap(),
+            "upstream-develop"
+        );
     }
 
     #[test]
@@ -6084,22 +6358,40 @@ filename README.md
         assert!(err.contains("default branch"), "{err}");
 
         delete_remote_branch(&git_bin(), &fork.work, "origin", "old-feature").unwrap();
-        assert!(!ref_exists(&git_bin(), &fork.origin, "refs/heads/old-feature"));
-        assert!(!ref_exists(&git_bin(), &fork.work, "refs/remotes/origin/old-feature"));
+        assert!(!ref_exists(
+            &git_bin(),
+            &fork.origin,
+            "refs/heads/old-feature"
+        ));
+        assert!(!ref_exists(
+            &git_bin(),
+            &fork.work,
+            "refs/remotes/origin/old-feature"
+        ));
     }
 
     #[test]
     fn renames_and_removes_remotes() {
         let fork = fork_with_upstream();
-        let url = list_remotes(&git_bin(), &fork.work).unwrap()[1].fetch_url.clone();
+        let url = list_remotes(&git_bin(), &fork.work).unwrap()[1]
+            .fetch_url
+            .clone();
         update_remote(&git_bin(), &fork.work, "upstream", "source", &url).unwrap();
-        assert!(ref_exists(&git_bin(), &fork.work, "refs/remotes/source/develop"));
+        assert!(ref_exists(
+            &git_bin(),
+            &fork.work,
+            "refs/remotes/source/develop"
+        ));
         assert!(add_remote(&git_bin(), &fork.work, "source", &url).is_err());
 
         checkout_remote_branch(&git_bin(), &fork.work, "source", "develop", Some("src")).unwrap();
         let message = remove_remote(&git_bin(), &fork.work, "source").unwrap();
         assert!(message.contains("src"), "{message}");
-        assert!(!ref_exists(&git_bin(), &fork.work, "refs/remotes/source/develop"));
+        assert!(!ref_exists(
+            &git_bin(),
+            &fork.work,
+            "refs/remotes/source/develop"
+        ));
     }
 
     #[test]
@@ -6159,7 +6451,10 @@ filename README.md
         let seed = init_repo();
         let origin = temp_dir();
         git(&origin, &["init", "--bare", "-b", "develop"]);
-        git(&seed, &["remote", "add", "origin", origin.to_str().unwrap()]);
+        git(
+            &seed,
+            &["remote", "add", "origin", origin.to_str().unwrap()],
+        );
         git(&seed, &["push", "-u", "origin", "develop"]);
 
         let work = temp_dir();
@@ -6243,26 +6538,38 @@ filename README.md
         git(&work, &["config", "user.name", "Shipyard Test"]);
         git(&work, &["config", "user.email", "test@shipyard.local"]);
 
-        let even = tracking_named(&local_branch_tracking(&git_bin(), &work).unwrap(), "develop");
+        let even = tracking_named(
+            &local_branch_tracking(&git_bin(), &work).unwrap(),
+            "develop",
+        );
         assert!(!even.local_only);
         assert_eq!((even.ahead, even.behind), (0, 0));
         assert_eq!(even.upstream.as_deref(), Some("origin/develop"));
 
         git(&work, &["branch", "feature"]);
-        let local = tracking_named(&local_branch_tracking(&git_bin(), &work).unwrap(), "feature");
+        let local = tracking_named(
+            &local_branch_tracking(&git_bin(), &work).unwrap(),
+            "feature",
+        );
         assert!(local.local_only);
 
         fs::write(upstream.join("README.md"), "upstream\n").unwrap();
         git(&upstream, &["add", "README.md"]);
         git(&upstream, &["commit", "-m", "upstream commit"]);
         git(&work, &["fetch"]);
-        let behind = tracking_named(&local_branch_tracking(&git_bin(), &work).unwrap(), "develop");
+        let behind = tracking_named(
+            &local_branch_tracking(&git_bin(), &work).unwrap(),
+            "develop",
+        );
         assert_eq!((behind.ahead, behind.behind), (0, 1));
 
         fs::write(work.join("local.txt"), "mine\n").unwrap();
         git(&work, &["add", "local.txt"]);
         git(&work, &["commit", "-m", "local commit"]);
-        let diverged = tracking_named(&local_branch_tracking(&git_bin(), &work).unwrap(), "develop");
+        let diverged = tracking_named(
+            &local_branch_tracking(&git_bin(), &work).unwrap(),
+            "develop",
+        );
         assert!(!diverged.local_only);
         assert_eq!((diverged.ahead, diverged.behind), (1, 1));
     }
@@ -6284,7 +6591,10 @@ filename README.md
             &["update-ref", "refs/remotes/origin/feature", &feature_tip],
         );
 
-        let even = tracking_named(&local_branch_tracking(&git_bin(), &work).unwrap(), "feature");
+        let even = tracking_named(
+            &local_branch_tracking(&git_bin(), &work).unwrap(),
+            "feature",
+        );
         assert!(!even.local_only);
         assert_eq!((even.ahead, even.behind), (0, 0));
         assert_eq!(even.upstream.as_deref(), Some("origin/feature"));
@@ -6293,7 +6603,10 @@ filename README.md
         fs::write(work.join("feature.txt"), "only local\n").unwrap();
         git(&work, &["add", "feature.txt"]);
         git(&work, &["commit", "-m", "local feature"]);
-        let ahead = tracking_named(&local_branch_tracking(&git_bin(), &work).unwrap(), "feature");
+        let ahead = tracking_named(
+            &local_branch_tracking(&git_bin(), &work).unwrap(),
+            "feature",
+        );
         assert!(!ahead.local_only);
         assert_eq!((ahead.ahead, ahead.behind), (1, 0));
     }
@@ -6326,8 +6639,12 @@ filename README.md
         let commits = log_graph(&git_bin(), &repo).unwrap();
         let update = &commits[0].hash;
         let files = commit_files(&git_bin(), &repo, update).unwrap();
-        assert!(files.iter().any(|file| file.path == "README.md" && file.status == "Modified"));
-        assert!(files.iter().any(|file| file.path == "new.txt" && file.status == "Added"));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && file.status == "Modified"));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "new.txt" && file.status == "Added"));
         let diff = commit_file_diff(&git_bin(), &repo, update, "README.md").unwrap();
         assert!(diff.contains("-hello") || diff.contains("+changed"));
 
@@ -6345,7 +6662,9 @@ filename README.md
         git(&repo, &["commit", "-m", "remove file"]);
         let commits = log_graph(&git_bin(), &repo).unwrap();
         let deleted = commit_files(&git_bin(), &repo, &commits[0].hash).unwrap();
-        assert!(deleted.iter().any(|file| file.path == "renamed.txt" && file.status == "Deleted"));
+        assert!(deleted
+            .iter()
+            .any(|file| file.path == "renamed.txt" && file.status == "Deleted"));
 
         assert!(commit_files(&git_bin(), &repo, "not-a-hash").is_err());
         assert!(commit_file_diff(&git_bin(), &repo, initial, "").is_err());
@@ -6405,8 +6724,12 @@ filename README.md
         assert_eq!(stash.hash.len(), 40);
         let files = stash_changes(&git_bin(), &repo, &stash.hash).unwrap();
         assert_eq!(files.len(), 2);
-        assert!(files.iter().any(|file| file.path == "README.md" && file.status == "Modified"));
-        assert!(files.iter().any(|file| file.path == "notes.txt" && file.status == "Untracked"));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && file.status == "Modified"));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "notes.txt" && file.status == "Untracked"));
 
         let tracked = stash_file_diff(&git_bin(), &repo, &stash.hash, "README.md", None).unwrap();
         assert!(tracked.contains("-hello") && tracked.contains("+stashed"));
@@ -6507,10 +6830,12 @@ filename README.md
     fn sets_and_unsets_git_identity() {
         let file = isolated_gitconfig();
         let git = git_bin();
-        let config = update_git_config_value_at(&git, "user.name", "Ada Lovelace", Some(&file)).unwrap();
+        let config =
+            update_git_config_value_at(&git, "user.name", "Ada Lovelace", Some(&file)).unwrap();
         assert_eq!(config.user_name, "Ada Lovelace");
         let config =
-            update_git_config_value_at(&git, "user.email", "ada@shipyard.local", Some(&file)).unwrap();
+            update_git_config_value_at(&git, "user.email", "ada@shipyard.local", Some(&file))
+                .unwrap();
         assert_eq!(config.user_email, "ada@shipyard.local");
         assert!(config.contents.contains("Ada Lovelace"));
         let config = update_git_config_value_at(&git, "user.name", "  ", Some(&file)).unwrap();
@@ -6532,7 +6857,8 @@ filename README.md
         let config = update_git_config_value_at(&git, "pull.rebase", "", Some(&file)).unwrap();
         assert!(config.pull_rebase.is_empty());
         let config =
-            update_git_config_value_at(&git, "checkout.defaultRemote", "origin", Some(&file)).unwrap();
+            update_git_config_value_at(&git, "checkout.defaultRemote", "origin", Some(&file))
+                .unwrap();
         assert_eq!(config.default_remote, "origin");
         let config =
             update_git_config_value_at(&git, "checkout.defaultRemote", "", Some(&file)).unwrap();
@@ -6545,9 +6871,16 @@ filename README.md
         let git = git_bin();
         assert!(update_git_config_value_at(&git, "core.editor", "vim", Some(&file)).is_err());
         assert!(update_git_config_value_at(&git, "user.name", "line\nbreak", Some(&file)).is_err());
-        assert!(update_git_config_value_at(&git, "init.defaultBranch", "..nope", Some(&file)).is_err());
-        assert!(update_git_config_value_at(&git, "pull.rebase", "interactive", Some(&file)).is_err());
-        assert!(update_git_config_value_at(&git, "checkout.defaultRemote", "..nope", Some(&file)).is_err());
+        assert!(
+            update_git_config_value_at(&git, "init.defaultBranch", "..nope", Some(&file)).is_err()
+        );
+        assert!(
+            update_git_config_value_at(&git, "pull.rebase", "interactive", Some(&file)).is_err()
+        );
+        assert!(
+            update_git_config_value_at(&git, "checkout.defaultRemote", "..nope", Some(&file))
+                .is_err()
+        );
         assert!(!file.exists());
     }
 
@@ -6681,7 +7014,10 @@ filename README.md
         let picked = cherry_pick_commits(&git_bin(), &repo, &[extra]).unwrap();
         assert!(picked.to_lowercase().contains("cherry") || picked.contains("extra"));
         assert_eq!(current_branch(&git_bin(), &repo).unwrap(), "develop");
-        assert_eq!(fs::read_to_string(repo.join("extra.txt")).unwrap(), "extra\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("extra.txt")).unwrap(),
+            "extra\n"
+        );
 
         fs::write(repo.join("README.md"), "third\n").unwrap();
         git(&repo, &["add", "README.md"]);
@@ -6689,7 +7025,10 @@ filename README.md
         let third = head_commit(&git_bin(), &repo).unwrap();
         let reverted = revert_commits(&git_bin(), &repo, &[third]).unwrap();
         assert!(reverted.to_lowercase().contains("revert") || reverted.contains("third"));
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "second\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "second\n"
+        );
 
         git(&repo, &["checkout", "-b", "feature"]);
         fs::write(repo.join("one.txt"), "one\n").unwrap();
@@ -6762,14 +7101,24 @@ filename README.md
         let err = branch_pull_request_url(&git_bin(), &repo, "develop").unwrap_err();
         assert!(err.contains("Push develop"), "{err}");
 
-        git(&repo, &["update-ref", "refs/remotes/origin/develop", "HEAD"]);
+        git(
+            &repo,
+            &["update-ref", "refs/remotes/origin/develop", "HEAD"],
+        );
         assert_eq!(
             branch_pull_request_url(&git_bin(), &repo, "develop").unwrap(),
             "https://github.com/owner/repo/compare/develop?expand=1"
         );
 
         git(&repo, &["config", "branch.develop.remote", "origin"]);
-        git(&repo, &["config", "branch.develop.merge", "refs/heads/feature/remote-name"]);
+        git(
+            &repo,
+            &[
+                "config",
+                "branch.develop.merge",
+                "refs/heads/feature/remote-name",
+            ],
+        );
         assert_eq!(
             branch_pull_request_url(&git_bin(), &repo, "develop").unwrap(),
             "https://github.com/owner/repo/compare/feature/remote-name?expand=1"
@@ -6830,20 +7179,32 @@ filename README.md
         fs::write(repo.join("README.md"), "changed\n").unwrap();
         fs::write(repo.join("other.txt"), "other\n").unwrap();
         discard_file_changes(&git_bin(), &repo, "README.md", false).unwrap();
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "hello\n");
-        assert_eq!(fs::read_to_string(repo.join("other.txt")).unwrap(), "other\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "hello\n"
+        );
+        assert_eq!(
+            fs::read_to_string(repo.join("other.txt")).unwrap(),
+            "other\n"
+        );
 
         discard_file_changes(&git_bin(), &repo, "other.txt", false).unwrap();
         assert!(!repo.join("other.txt").exists());
 
         fs::remove_file(repo.join("README.md")).unwrap();
         discard_file_changes(&git_bin(), &repo, "README.md", false).unwrap();
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "hello\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "hello\n"
+        );
 
         fs::write(repo.join("README.md"), "staged\n").unwrap();
         git(&repo, &["add", "README.md"]);
         discard_file_changes(&git_bin(), &repo, "README.md", true).unwrap();
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "hello\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "hello\n"
+        );
         assert!(working_tree(&git_bin(), &repo).unwrap().is_empty());
 
         fs::write(repo.join("new.txt"), "new\n").unwrap();
@@ -6855,7 +7216,10 @@ filename README.md
         git(&repo, &["add", "README.md"]);
         fs::write(repo.join("README.md"), "staged\nunstaged\n").unwrap();
         discard_file_changes(&git_bin(), &repo, "README.md", false).unwrap();
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "staged\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "staged\n"
+        );
         let staged_only = working_tree(&git_bin(), &repo).unwrap();
         assert!(staged_only
             .iter()
@@ -6886,7 +7250,10 @@ filename README.md
         git(&repo, &["clean", "-fd"]);
         git(&repo, &["mv", "README.md", "guide.md"]);
         discard_file_changes(&git_bin(), &repo, "guide.md", true).unwrap();
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "hello\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "hello\n"
+        );
         assert!(!repo.join("guide.md").exists());
         assert!(working_tree(&git_bin(), &repo).unwrap().is_empty());
 
@@ -6919,7 +7286,10 @@ filename README.md
         fs::write(repo.join("new.txt"), "new\nextra\n").unwrap();
         let err = discard_file_changes(&git_bin(), &repo, "new.txt", true).unwrap_err();
         assert!(err.to_lowercase().contains("unstaged"));
-        assert_eq!(fs::read_to_string(repo.join("new.txt")).unwrap(), "new\nextra\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("new.txt")).unwrap(),
+            "new\nextra\n"
+        );
         assert!(working_tree(&git_bin(), &repo)
             .unwrap()
             .iter()
@@ -6947,7 +7317,10 @@ filename README.md
         let err = discard_file_changes(&git_bin(), &repo, "guide.md", true).unwrap_err();
         assert!(err.contains("README.md"));
         assert_eq!(fs::read(repo.join("guide.md")).unwrap(), guide);
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "custom\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "custom\n"
+        );
         assert!(working_tree(&git_bin(), &repo)
             .unwrap()
             .iter()
@@ -7008,13 +7381,20 @@ filename README.md
         stage_files(&git_bin(), &repo, &["README.md"]).unwrap();
         let files = working_tree(&git_bin(), &repo).unwrap();
         assert!(!files.iter().any(|file| file.status == "Conflicted"));
-        assert!(files.iter().any(|file| file.path == "README.md" && file.staged));
+        assert!(files
+            .iter()
+            .any(|file| file.path == "README.md" && file.staged));
         let message = continue_operation(&git_bin(), &repo).unwrap();
-        assert!(message.to_lowercase().contains("merge") || message.to_lowercase().contains("commit"));
+        assert!(
+            message.to_lowercase().contains("merge") || message.to_lowercase().contains("commit")
+        );
         let status = live_status(&git_bin(), &repo).unwrap();
         assert!(status.operation.is_empty());
         assert_eq!(status.conflicted_files, 0);
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "resolved\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "resolved\n"
+        );
     }
 
     #[test]
@@ -7025,7 +7405,10 @@ filename README.md
         let status = live_status(&git_bin(), &repo).unwrap();
         assert!(status.operation.is_empty());
         assert_eq!(status.conflicted_files, 0);
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "develop\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "develop\n"
+        );
 
         git(&repo, &["checkout", "-b", "rebased"]);
         fs::write(repo.join("README.md"), "rebased\n").unwrap();
@@ -7046,6 +7429,9 @@ filename README.md
         let status = live_status(&git_bin(), &repo).unwrap();
         assert_eq!(status.operation, "");
         assert_eq!(current_branch(&git_bin(), &repo).unwrap(), "rebased");
-        assert_eq!(fs::read_to_string(repo.join("README.md")).unwrap(), "rebased\n");
+        assert_eq!(
+            fs::read_to_string(repo.join("README.md")).unwrap(),
+            "rebased\n"
+        );
     }
 }

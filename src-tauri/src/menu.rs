@@ -23,7 +23,8 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         true,
         Some("CmdOrCtrl+W"),
     )?;
-    let close_window_item = MenuItem::with_id(app, CLOSE_TAB_OR_WINDOW_ID, "Close", true, None::<&str>)?;
+    let close_window_item =
+        MenuItem::with_id(app, CLOSE_TAB_OR_WINDOW_ID, "Close", true, None::<&str>)?;
     let settings = MenuItem::with_id(
         app,
         OPEN_SETTINGS_ID,

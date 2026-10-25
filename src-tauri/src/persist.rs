@@ -14,7 +14,8 @@ fn app_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .app_data_dir()
         .map_err(|err| format!("Could not resolve the app data directory: {err}"))?;
-    fs::create_dir_all(&dir).map_err(|err| format!("Could not create the app data directory: {err}"))?;
+    fs::create_dir_all(&dir)
+        .map_err(|err| format!("Could not create the app data directory: {err}"))?;
     Ok(dir)
 }
 
