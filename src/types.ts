@@ -223,6 +223,20 @@ export interface TagEntry {
   annotated: boolean;
 }
 
+export type TagSync = "same" | "differs" | "remoteOnly";
+
+export interface RemoteTag {
+  name: string;
+  hash: string;
+  annotated: boolean;
+  sync: TagSync;
+}
+
+export interface RemoteTagOverview {
+  remote: string;
+  tags: RemoteTag[];
+}
+
 export interface GitConfig {
   path: string;
   contents: string;

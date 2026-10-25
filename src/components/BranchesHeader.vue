@@ -11,14 +11,34 @@ export function filterBranches<T extends { name: string }>(branches: T[], query:
 </script>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
-defineProps<{
-  view: BranchesView;
-  busy: boolean;
-  total: number;
-  visible: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    view: BranchesView;
+    busy: boolean;
+    total: number;
+    visible: number;
+    noun?: "branches" | "tags";
+  }>(),
+  { noun: "branches" },
+);
+
+const labels = computed(() =>
+  props.noun === "tags"
+    ? {
+        group: "Tags view",
+        local: "Tags in this repository",
+        remote: "Tags on a remote",
+        filter: "Filter tags",
+      }
+    : {
+        group: "Branches view",
+        local: "Branches in this repository",
+        remote: "Remotes and their branches",
+        filter: "Filter branches",
+      },
+);
 
 const emit = defineEmits<{
   select: [view: BranchesView];
@@ -75,13 +95,13 @@ onUnmounted(() => {
 
 <template>
   <div class="branch-search">
-    <div class="segmented" role="group" aria-label="Branches view">
+    <div class="segmented" role="group" :aria-label="labels.group">
       <button
         type="button"
         :class="{ active: view === 'local' }"
         :aria-pressed="view === 'local'"
         :disabled="busy"
-        title="Branches in this repository"
+        :title="labels.local"
         @click="emit('select', 'local')"
       >
         Local
@@ -91,14 +111,14 @@ onUnmounted(() => {
         :class="{ active: view === 'remotes' }"
         :aria-pressed="view === 'remotes'"
         :disabled="busy"
-        title="Remotes and their branches"
+        :title="labels.remote"
         @click="emit('select', 'remotes')"
       >
         Remote
       </button>
     </div>
     <label class="branch-search-field">
-      <span class="sr-only">Filter branches</span>
+      <span class="sr-only">{{ labels.filter }}</span>
       <svg class="branch-search-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
       </svg>
@@ -107,7 +127,7 @@ onUnmounted(() => {
         v-model="query"
         type="text"
         class="branch-search-query"
-        placeholder="Filter branches"
+        :placeholder="labels.filter"
         autocapitalize="off"
         autocorrect="off"
         autocomplete="off"

@@ -20,7 +20,7 @@ import RemoteList from "./RemoteList.vue";
 import RepoToolbar from "./RepoToolbar.vue";
 import RepoViewTabs, { type RepoViewTab } from "./RepoViewTabs.vue";
 import StashList from "./StashList.vue";
-import TagList from "./TagList.vue";
+import TagList, { filterTags } from "./TagList.vue";
 import TerminalPane from "./TerminalPane.vue";
 import WorkingTree from "./WorkingTree.vue";
 import { useApp } from "../composables/useApp";
@@ -36,6 +36,8 @@ import type {
   RemoteBranch,
   RemoteEntry,
   RemoteOverview,
+  RemoteTag,
+  RemoteTagOverview,
   RepoFile,
   RepoFilesChanged,
   StashEntry,
@@ -95,6 +97,25 @@ const stashes = ref<StashEntry[]>([]);
 const stashView = computed(() => mainTab.value === "stashes");
 const tags = ref<TagEntry[]>([]);
 const tagView = computed(() => mainTab.value === "tags");
+const tagsSubView = ref<BranchesView>("local");
+const tagQuery = ref("");
+const remoteTags = ref<RemoteTagOverview | null>(null);
+const remoteTagsLoading = ref(false);
+const remoteTagsError = ref("");
+let remoteTagsGeneration = 0;
+const tagsSubViewList = computed((): { name: string; hash: string; message?: string }[] => {
+  if (tagsSubView.value === "local") {
+    return tags.value;
+  }
+  if (remoteTags.value?.remote !== selectedRemote.value) {
+    return [];
+  }
+  const messages = new Map(tags.value.map((tag) => [tag.name, tag.message]));
+  return remoteTags.value.tags.map((tag) => ({ ...tag, message: messages.get(tag.name) ?? "" }));
+});
+const tagsSubViewVisible = computed(
+  () => filterTags(tagsSubViewList.value, tagQuery.value).length,
+);
 const remotesView = computed(
   () => mainTab.value === "branches" && branchesSubView.value === "remotes",
 );
@@ -648,6 +669,8 @@ async function loadRepo(options?: { overview?: boolean; graph?: boolean; silent?
     tags.value = [];
     remotes.value = [];
     remoteOverview.value = null;
+    remoteTagsGeneration += 1;
+    remoteTags.value = null;
     overview.value = null;
     selectedFile.value = null;
     closeCommitDetail();
@@ -1646,6 +1669,9 @@ async function selectMainTab(tab: RepoViewTab) {
   if (mainTab.value === "branches") {
     branchQuery.value = "";
   }
+  if (mainTab.value === "tags") {
+    tagQuery.value = "";
+  }
   mainTab.value = tab;
   if (tab === "terminal") {
     terminalStarted.value = true;
@@ -1659,8 +1685,13 @@ async function selectMainTab(tab: RepoViewTab) {
   }
   if (tab === "branches") {
     const path = current.value?.repo.path;
-    branchesSubView.value = path ? rememberedBranchesView(path) : "local";
+    branchesSubView.value = path ? rememberedSubView("branches", path) : "local";
     await openBranchesSubView();
+  }
+  if (tab === "tags") {
+    const path = current.value?.repo.path;
+    tagsSubView.value = path ? rememberedSubView("tags", path) : "local";
+    await openTagsView({ reload: tagsSubView.value === "remotes" });
   }
 }
 
@@ -1671,9 +1702,135 @@ async function selectBranchesSubView(view: BranchesView) {
   branchesSubView.value = view;
   const path = current.value?.repo.path;
   if (path) {
-    rememberBranchesView(path, view);
+    rememberSubView("branches", path, view);
   }
   await openBranchesSubView();
+}
+
+async function selectTagsSubView(view: BranchesView) {
+  if (tagsSubView.value === view) {
+    return;
+  }
+  tagsSubView.value = view;
+  const path = current.value?.repo.path;
+  if (path) {
+    rememberSubView("tags", path, view);
+  }
+  await openTagsView({ reload: view === "remotes" });
+}
+
+/** Remote tags back both views: the remote list and the local "Not published" badges. */
+async function openTagsView(options: { reload: boolean }) {
+  const match = current.value;
+  if (!match) {
+    return;
+  }
+  await refreshRemoteList(match.repo.path);
+  const cached = remoteTags.value?.remote === selectedRemote.value;
+  if (options.reload || !cached) {
+    await loadRemoteTags();
+  }
+}
+
+async function loadRemoteTags() {
+  const match = current.value;
+  const remote = selectedRemote.value;
+  const generation = ++remoteTagsGeneration;
+  if (!match || !remote) {
+    remoteTags.value = null;
+    remoteTagsError.value = "";
+    remoteTagsLoading.value = false;
+    return;
+  }
+  remoteTagsLoading.value = true;
+  try {
+    const next = await api.remoteTags(match.repo.path, remote);
+    if (generation === remoteTagsGeneration) {
+      remoteTags.value = next;
+      remoteTagsError.value = "";
+    }
+  } catch (err) {
+    if (generation === remoteTagsGeneration) {
+      remoteTags.value = null;
+      remoteTagsError.value = String(err);
+    }
+  } finally {
+    if (generation === remoteTagsGeneration) {
+      remoteTagsLoading.value = false;
+    }
+  }
+}
+
+function selectTagRemote(name: string) {
+  const match = current.value;
+  if (!match || name === selectedRemote.value) {
+    return;
+  }
+  selectedRemote.value = name;
+  rememberRemote(match.repo.path, name);
+  void loadRemoteTags();
+}
+
+async function runTagRemoteAction(label: string, work: () => Promise<string>) {
+  await runRepoAction(label, work);
+  await loadRemoteTags();
+}
+
+async function publishTag(tag: TagEntry) {
+  const match = current.value;
+  const remote = selectedRemote.value;
+  if (!match || !remote) {
+    return;
+  }
+  const ok = await confirm(
+    `Publish tag ${tag.name} to ${remote}? Everyone who fetches ${remote} will get it, and pushing a tag can start release automation on the server.`,
+    {
+      title: "Publish tag",
+      kind: "info",
+      okLabel: "Publish",
+      cancelLabel: "Cancel",
+    },
+  );
+  if (!ok) {
+    return;
+  }
+  return runTagRemoteAction("Publishing tag…", () =>
+    api.pushTag(match.repo.path, remote, tag.name),
+  );
+}
+
+function fetchRemoteTag(tag: RemoteTag) {
+  const match = current.value;
+  const remote = selectedRemote.value;
+  if (!match || !remote) {
+    return;
+  }
+  return runTagRemoteAction("Fetching tag…", () =>
+    api.fetchRemoteTag(match.repo.path, remote, tag.name),
+  );
+}
+
+async function deleteRemoteTag(tag: RemoteTag) {
+  const match = current.value;
+  const remote = selectedRemote.value;
+  if (!match || !remote) {
+    return;
+  }
+  const ok = await confirm(
+    `Delete tag ${tag.name} on ${remote}? It is removed from the server for everyone. Your local copy, if you have one, is kept.`,
+    {
+      title: "Delete remote tag",
+      kind: "warning",
+      okLabel: "Delete",
+      cancelLabel: "Cancel",
+    },
+  );
+  if (!ok) {
+    return;
+  }
+  return runTagRemoteAction("Deleting remote tag…", () =>
+    api.deleteRemoteTag(match.repo.path, remote, tag.name),
+  );
 }
 
 async function openBranchesSubView() {
@@ -1695,21 +1852,21 @@ async function openBranchesSubView() {
   void fetchSelectedRemote({ quiet: true });
 }
 
-function branchesViewStorageKey(path: string) {
-  return `shipyard:branches-view:${path}`;
+function subViewStorageKey(kind: "branches" | "tags", path: string) {
+  return `shipyard:${kind}-view:${path}`;
 }
 
-function rememberedBranchesView(path: string): BranchesView {
+function rememberedSubView(kind: "branches" | "tags", path: string): BranchesView {
   try {
-    return localStorage.getItem(branchesViewStorageKey(path)) === "remotes" ? "remotes" : "local";
+    return localStorage.getItem(subViewStorageKey(kind, path)) === "remotes" ? "remotes" : "local";
   } catch {
     return "local";
   }
 }
 
-function rememberBranchesView(path: string, view: BranchesView) {
+function rememberSubView(kind: "branches" | "tags", path: string, view: BranchesView) {
   try {
-    localStorage.setItem(branchesViewStorageKey(path), view);
+    localStorage.setItem(subViewStorageKey(kind, path), view);
   } catch {
     /* choice just won't persist */
   }
@@ -2154,6 +2311,10 @@ async function runRemoteAction(label: string, work: () => Promise<string>, branc
   }
   await runRepoAction(label, work, branch);
   await refreshRemoteList(match.repo.path);
+  if (tagView.value) {
+    await loadRemoteTags();
+    return;
+  }
   await loadRemoteOverview();
 }
 
@@ -2967,6 +3128,12 @@ watch(
     mainTab.value = "commits";
     branchesSubView.value = "local";
     branchQuery.value = "";
+    tagsSubView.value = "local";
+    tagQuery.value = "";
+    remoteTagsGeneration += 1;
+    remoteTags.value = null;
+    remoteTagsError.value = "";
+    remoteTagsLoading.value = false;
     remoteGeneration += 1;
     remotes.value = [];
     selectedRemote.value = "";
@@ -3114,6 +3281,16 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
           :visible="branchesSubViewVisible"
           @select="selectBranchesSubView"
         />
+        <BranchesHeader
+          v-if="tagView"
+          v-model:query="tagQuery"
+          noun="tags"
+          :view="tagsSubView"
+          :busy="actionBusy"
+          :total="tagsSubViewList.length"
+          :visible="tagsSubViewVisible"
+          @select="selectTagsSubView"
+        />
         <CommitsHeader
           v-if="mainTab === 'commits'"
           v-model:query="commitQuery"
@@ -3180,10 +3357,23 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         />
         <TagList
           v-else-if="tagView"
+          :view="tagsSubView"
           :tags="tags"
+          :remotes="remotes"
+          :selected-remote="selectedRemote"
+          :remote-tags="remoteTags"
+          :remote-loading="remoteTagsLoading"
+          :remote-error="remoteTagsError"
           :busy="actionBusy"
+          :query="tagQuery"
           @create="openCreateTag"
           @delete="deleteTag"
+          @publish="publishTag"
+          @select-remote="selectTagRemote"
+          @add-remote="openAddRemote"
+          @refresh-remote="loadRemoteTags"
+          @fetch-remote="fetchRemoteTag"
+          @delete-remote="deleteRemoteTag"
         />
         <StashList
           v-else-if="stashView"

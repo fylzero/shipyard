@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, useId } from "vue";
+import { computed, ref } from "vue";
 import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
 import { filterBranches } from "./BranchesHeader.vue";
-import { useOverflowMenu } from "../composables/useOverflowMenu";
+import RemotePicker from "./RemotePicker.vue";
 import { formatCommitDate } from "../graphLayout";
 import type { RemoteBranch, RemoteEntry, RemoteOverview } from "../types";
 
@@ -29,9 +29,7 @@ const emit = defineEmits<{
   delete: [branch: RemoteBranch];
 }>();
 
-const menuId = `remote-picker-${useId()}`;
 const nameMenu = ref<{ name: string; x: number; y: number } | null>(null);
-const { isOpen, toggle, close } = useOverflowMenu(() => menuId);
 
 function keepNameUnselected(event: MouseEvent) {
   if (event.button === 2) {
@@ -55,19 +53,6 @@ const branches = computed(() =>
 );
 
 const visibleBranches = computed(() => filterBranches(branches.value, props.query));
-
-function selectFromMenu(name: string) {
-  close();
-  if (name === props.selected) {
-    return;
-  }
-  emit("select", name);
-}
-
-function addFromMenu() {
-  close();
-  emit("add");
-}
 
 function localTitle(branch: RemoteBranch) {
   const full = `${branch.remote}/${branch.name}`;
@@ -112,59 +97,13 @@ function checkoutTitle(branch: RemoteBranch) {
       </button>
     </div>
     <div v-else class="remote-header">
-      <div class="overflow-menu branch-menu">
-        <button
-          class="branch-switch"
-          type="button"
-          :disabled="busy"
-          :aria-expanded="isOpen"
-          aria-haspopup="menu"
-          :title="`Switch remote from ${selected}`"
-          @click="toggle"
-        >
-          <span class="branch-switch-name">{{ selected || "No remote" }}</span>
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M4.2 6.2L8 10l3.8-3.8" />
-          </svg>
-        </button>
-        <div
-          v-if="isOpen"
-          class="overflow-menu-dropdown branch-menu-dropdown"
-          role="menu"
-          aria-label="Remotes"
-        >
-          <button
-            class="overflow-menu-item"
-            type="button"
-            role="menuitem"
-            :disabled="busy"
-            @click="addFromMenu"
-          >
-            Add remote…
-          </button>
-          <div class="context-menu-sep" />
-          <div class="branch-menu-list">
-            <button
-              v-for="remote in remotes"
-              :key="remote.name"
-              class="overflow-menu-item branch-menu-branch"
-              :class="{ active: remote.name === selected }"
-              type="button"
-              role="menuitem"
-              :title="remote.fetchUrl"
-              @click="selectFromMenu(remote.name)"
-            >
-              <span class="branch-menu-name">{{ remote.name }}</span>
-              <span
-                class="branch-pill"
-                :title="`${remote.branchCount} branches on ${remote.name}`"
-              >
-                {{ remote.branchCount }}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <RemotePicker
+        :remotes="remotes"
+        :selected="selected"
+        :busy="busy"
+        @select="emit('select', $event)"
+        @add="emit('add')"
+      />
       <span
         v-if="selectedRemote"
         class="remote-url muted tiny"

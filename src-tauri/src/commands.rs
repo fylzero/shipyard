@@ -8,8 +8,8 @@ use crate::models::{
     sanitize_editor, sanitize_font_family, sanitize_font_size, sanitize_notifications,
     sanitize_refresh_active_hours, AppData, BranchOverview, BranchTracking, CommitFile, CommitNode,
     CommitSearch, DeleteMergedResult, FileBlame, GitConfig, LastCommit, RefreshActiveHours,
-    RemoteEntry, RemoteOverview, RepoActionResult, RepoEntry, RepoFile, RepoGroup, RepoStatus,
-    StashEntry, TagEntry, WorkingTreeFile,
+    RemoteEntry, RemoteOverview, RemoteTagOverview, RepoActionResult, RepoEntry, RepoFile,
+    RepoGroup, RepoStatus, StashEntry, TagEntry, WorkingTreeFile,
 };
 use crate::persist;
 
@@ -1723,6 +1723,63 @@ pub async fn delete_tag(
     tauri::async_runtime::spawn_blocking(move || git::delete_tag(&git, Path::new(&path), &name))
         .await
         .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn remote_tags(
+    state: State<'_, AppState>,
+    path: String,
+    remote: String,
+) -> Result<RemoteTagOverview, String> {
+    let git = require_git(&state)?;
+    tauri::async_runtime::spawn_blocking(move || git::remote_tags(&git, Path::new(&path), &remote))
+        .await
+        .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn push_tag(
+    state: State<'_, AppState>,
+    path: String,
+    remote: String,
+    name: String,
+) -> Result<String, String> {
+    let git = require_git(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        git::push_tag(&git, Path::new(&path), &remote, &name)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn delete_remote_tag(
+    state: State<'_, AppState>,
+    path: String,
+    remote: String,
+    name: String,
+) -> Result<String, String> {
+    let git = require_git(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        git::delete_remote_tag(&git, Path::new(&path), &remote, &name)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn fetch_remote_tag(
+    state: State<'_, AppState>,
+    path: String,
+    remote: String,
+    name: String,
+) -> Result<String, String> {
+    let git = require_git(&state)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        git::fetch_remote_tag(&git, Path::new(&path), &remote, &name)
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]

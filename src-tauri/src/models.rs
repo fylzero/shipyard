@@ -647,6 +647,30 @@ pub struct TagEntry {
     pub annotated: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TagSync {
+    Same,
+    Differs,
+    RemoteOnly,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteTag {
+    pub name: String,
+    pub hash: String,
+    pub annotated: bool,
+    pub sync: TagSync,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteTagOverview {
+    pub remote: String,
+    pub tags: Vec<RemoteTag>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitConfig {

@@ -3393,6 +3393,11 @@ input[type="text"].branch-search-query {
   background: color-mix(in srgb, var(--warn) 18%, var(--chip));
 }
 
+.branch-pill.differs {
+  color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 16%, var(--chip));
+}
+
 .branch-row-actions,
 .stash-row-actions {
   margin-left: auto;
@@ -3501,6 +3506,11 @@ input[type="text"].branch-search-query {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tag-header-copy .spinner {
+  margin-right: 0.35rem;
+  vertical-align: -0.1em;
 }
 
 .remote-header-actions {

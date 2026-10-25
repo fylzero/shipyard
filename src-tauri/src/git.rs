@@ -11,7 +11,8 @@ use crate::command_log;
 use crate::models::{
     BlameLine, BranchOverview, BranchTracking, CommitFile, CommitNode, CommitSearch,
     DeleteMergedResult, FileBlame, GitConfig, LastCommit, LocalBranch, RemoteBranch, RemoteEntry,
-    RemoteOverview, RepoFile, StashEntry, TagEntry, WorkingTreeFile,
+    RemoteOverview, RemoteTag, RemoteTagOverview, RepoFile, StashEntry, TagEntry, TagSync,
+    WorkingTreeFile,
 };
 
 pub struct GitOutput {
@@ -524,6 +525,26 @@ fn run_network_git(
     args: &[&str],
     timeout: Duration,
 ) -> Result<GitOutput, String> {
+    spawn_network_git(git, repo, args, timeout, false)
+}
+
+/// Same as `run_network_git`, but keeps stdout for commands that report data.
+fn run_network_git_capture(
+    git: &Path,
+    repo: &Path,
+    args: &[&str],
+    timeout: Duration,
+) -> Result<GitOutput, String> {
+    spawn_network_git(git, repo, args, timeout, true)
+}
+
+fn spawn_network_git(
+    git: &Path,
+    repo: &Path,
+    args: &[&str],
+    timeout: Duration,
+    capture_stdout: bool,
+) -> Result<GitOutput, String> {
     let started = Instant::now();
     let mut child = match Command::new(git)
         .args(args)
@@ -536,7 +557,11 @@ fn run_network_git(
             "ssh -o BatchMode=yes -o ConnectTimeout=8",
         )
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
+        .stdout(if capture_stdout {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stderr(Stdio::piped())
         .spawn()
     {
@@ -548,6 +573,13 @@ fn run_network_git(
         }
     };
 
+    let stdout_reader = child.stdout.take().map(|mut stdout| {
+        thread::spawn(move || {
+            let mut text = String::new();
+            let _ = std::io::Read::read_to_string(&mut stdout, &mut text);
+            text
+        })
+    });
     let stderr_reader = child.stderr.take().map(|mut stderr| {
         thread::spawn(move || {
             let mut text = String::new();
@@ -555,7 +587,7 @@ fn run_network_git(
             text
         })
     });
-    let collect_stderr = |reader: Option<thread::JoinHandle<String>>| {
+    let collect = |reader: Option<thread::JoinHandle<String>>| {
         reader
             .and_then(|handle| handle.join().ok())
             .unwrap_or_default()
@@ -565,7 +597,8 @@ fn run_network_git(
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
-                let stderr = collect_stderr(stderr_reader);
+                let stdout = collect(stdout_reader);
+                let stderr = collect(stderr_reader);
                 command_log::record(
                     repo,
                     git,
@@ -576,7 +609,7 @@ fn run_network_git(
                     &stderr,
                 );
                 return Ok(GitOutput {
-                    stdout: String::new(),
+                    stdout,
                     stderr,
                     success: status.success(),
                 });
@@ -584,7 +617,8 @@ fn run_network_git(
             Ok(None) if Instant::now() >= deadline => {
                 let _ = child.kill();
                 let _ = child.wait();
-                let _ = collect_stderr(stderr_reader);
+                let _ = collect(stdout_reader);
+                let _ = collect(stderr_reader);
                 let message = format!("git {} timed out after {}s", args[0], timeout.as_secs());
                 command_log::record(repo, git, args, false, started.elapsed(), "", &message);
                 return Err(message);
@@ -4003,7 +4037,7 @@ pub fn tag_list(git: &Path, repo: &Path) -> Result<Vec<TagEntry>, String> {
         &[
             "for-each-ref",
             "--sort=-creatordate",
-            "--format=%(refname:short)%00%(objectname:short)%00%(*objectname:short)%00%(creatordate:iso-strict)%00%(subject)",
+            "--format=%(refname:strip=2)%00%(objectname:short)%00%(*objectname:short)%00%(creatordate:iso-strict)%00%(subject)",
             "refs/tags",
         ],
     )?;
@@ -4082,6 +4116,193 @@ pub fn delete_tag(git: &Path, repo: &Path, name: &str) -> Result<String, String>
         &combined_message(&output),
         &format!("Deleted tag {name}"),
     ))
+}
+
+fn local_tag_objects(git: &Path, repo: &Path) -> Result<HashMap<String, String>, String> {
+    let output = run_git(
+        git,
+        repo,
+        &[
+            "for-each-ref",
+            "--format=%(refname:strip=2)%00%(objectname)",
+            "refs/tags",
+        ],
+    )?;
+    if !output.success {
+        return Err(or_fallback(
+            &combined_message(&output),
+            "Could not read the tag list.",
+        ));
+    }
+    Ok(output
+        .stdout
+        .lines()
+        .filter_map(|line| {
+            let (name, object) = line.split_once('\0')?;
+            Some((name.to_string(), object.trim().to_string()))
+        })
+        .collect())
+}
+
+/// Parses `git ls-remote --tags` into (name, tag object, peeled commit) in listed order.
+fn parse_ls_remote_tags(stdout: &str) -> Vec<(String, String, Option<String>)> {
+    let mut tags: Vec<(String, String, Option<String>)> = Vec::new();
+    let mut index: HashMap<String, usize> = HashMap::new();
+    for line in stdout.lines() {
+        let Some((sha, refname)) = line.trim().split_once('\t') else {
+            continue;
+        };
+        let Some(name) = refname.strip_prefix("refs/tags/") else {
+            continue;
+        };
+        let (name, peeled) = match name.strip_suffix("^{}") {
+            Some(base) => (base, true),
+            None => (name, false),
+        };
+        if name.is_empty() {
+            continue;
+        }
+        let slot = *index.entry(name.to_string()).or_insert_with(|| {
+            tags.push((name.to_string(), String::new(), None));
+            tags.len() - 1
+        });
+        if peeled {
+            tags[slot].2 = Some(sha.to_string());
+        } else {
+            tags[slot].1 = sha.to_string();
+        }
+    }
+    tags.retain(|(_, object, _)| !object.is_empty());
+    tags
+}
+
+/// Lists tags on the remote server and compares each with the local tag of the same name.
+pub fn remote_tags(git: &Path, repo: &Path, remote: &str) -> Result<RemoteTagOverview, String> {
+    require_remote(git, repo, remote)?;
+    let output = run_network_git_capture(
+        git,
+        repo,
+        &["ls-remote", "--tags", "--sort=-v:refname", remote],
+        REMOTE_FETCH_TIMEOUT,
+    )?;
+    if !output.success {
+        return Err(or_fallback(
+            &combined_message(&output),
+            &format!("Could not list tags on {remote}."),
+        ));
+    }
+    let local = local_tag_objects(git, repo)?;
+    let tags = parse_ls_remote_tags(&output.stdout)
+        .into_iter()
+        .map(|(name, object, peeled)| {
+            let sync = match local.get(&name) {
+                None => TagSync::RemoteOnly,
+                Some(local_object) if *local_object == object => TagSync::Same,
+                Some(_) => TagSync::Differs,
+            };
+            RemoteTag {
+                hash: peeled.clone().unwrap_or_else(|| object.clone()),
+                annotated: peeled.is_some(),
+                name,
+                sync,
+            }
+        })
+        .collect();
+    Ok(RemoteTagOverview {
+        remote: remote.to_string(),
+        tags,
+    })
+}
+
+fn require_local_tag(git: &Path, repo: &Path, name: &str) -> Result<String, String> {
+    validate_tag(name)?;
+    let refname = format!("refs/tags/{name}");
+    if !ref_exists(git, repo, &refname) {
+        return Err(format!("Tag {name} does not exist."));
+    }
+    Ok(refname)
+}
+
+/// Pushes one tag. Never forces, so a different tag of the same name on the remote is kept.
+pub fn push_tag(git: &Path, repo: &Path, remote: &str, name: &str) -> Result<String, String> {
+    require_remote(git, repo, remote)?;
+    let refname = require_local_tag(git, repo, name)?;
+    let refspec = format!("{refname}:{refname}");
+    let output = run_network_git(
+        git,
+        repo,
+        &["push", "--no-follow-tags", remote, &refspec],
+        REMOTE_FETCH_TIMEOUT,
+    )?;
+    if !output.success {
+        let message = combined_message(&output);
+        if message.contains("already exists") || message.contains("[rejected]") {
+            return Err(format!(
+                "{remote} already has a different tag named {name}. Delete it there first if you mean to replace it.\n\n{message}"
+            ));
+        }
+        return Err(or_fallback(
+            &message,
+            &format!("Failed to publish {name} to {remote}."),
+        ));
+    }
+    Ok(format!("Published {name} to {remote}"))
+}
+
+/// Deletes the tag on the remote server. The local tag is left alone.
+pub fn delete_remote_tag(
+    git: &Path,
+    repo: &Path,
+    remote: &str,
+    name: &str,
+) -> Result<String, String> {
+    require_remote(git, repo, remote)?;
+    validate_tag(name)?;
+    let target = format!("refs/tags/{name}");
+    let output = run_network_git(
+        git,
+        repo,
+        &["push", remote, "--delete", &target],
+        REMOTE_FETCH_TIMEOUT,
+    )?;
+    if !output.success {
+        return Err(or_fallback(
+            &combined_message(&output),
+            &format!("Failed to delete {name} on {remote}."),
+        ));
+    }
+    Ok(format!("Deleted tag {name} on {remote}"))
+}
+
+/// Fetches one tag from the remote. An existing local tag of the same name is never replaced.
+pub fn fetch_remote_tag(
+    git: &Path,
+    repo: &Path,
+    remote: &str,
+    name: &str,
+) -> Result<String, String> {
+    require_remote(git, repo, remote)?;
+    validate_tag(name)?;
+    let refname = format!("refs/tags/{name}");
+    if ref_exists(git, repo, &refname) {
+        return Err(format!(
+            "You already have a local tag named {name}. Delete it first to take the one from {remote}."
+        ));
+    }
+    let refspec = format!("{refname}:{refname}");
+    let output = run_network_git(
+        git,
+        repo,
+        &["fetch", "--no-tags", remote, &refspec],
+        REMOTE_FETCH_TIMEOUT,
+    )?;
+    if !output.success {
+        return Err(or_fallback(
+            &combined_message(&output),
+            &format!("Failed to fetch {name} from {remote}."),
+        ));
+    }
+    Ok(format!("Fetched tag {name} from {remote}"))
 }
 
 fn file_exists_at(git: &Path, repo: &Path, rev: &str, file: &str) -> bool {
@@ -6906,6 +7127,64 @@ filename README.md
         assert!(!names.iter().any(|name| name == "v1.0.0"));
         assert!(names.iter().any(|name| name == "v1.1.0"));
         assert!(names.iter().any(|name| name == "v0.9.0"));
+    }
+
+    #[test]
+    fn publishes_fetches_and_deletes_remote_tags() {
+        let (_origin, work) = bare_origin_with_clone();
+        let git_path = git_bin();
+        assert!(remote_tags(&git_path, &work, "origin")
+            .unwrap()
+            .tags
+            .is_empty());
+        assert!(remote_tags(&git_path, &work, "missing").is_err());
+        assert!(push_tag(&git_path, &work, "origin", "nope").is_err());
+
+        create_tag(&git_path, &work, "v1.0.0", "", "").unwrap();
+        create_tag(&git_path, &work, "v1.1.0", "Annotated", "").unwrap();
+        push_tag(&git_path, &work, "origin", "v1.0.0").unwrap();
+        push_tag(&git_path, &work, "origin", "v1.1.0").unwrap();
+
+        let listed = remote_tags(&git_path, &work, "origin").unwrap().tags;
+        let names: Vec<_> = listed.iter().map(|tag| tag.name.as_str()).collect();
+        assert_eq!(names, ["v1.1.0", "v1.0.0"]);
+        assert!(listed.iter().all(|tag| tag.sync == TagSync::Same));
+        let annotated = listed.iter().find(|tag| tag.name == "v1.1.0").unwrap();
+        assert!(annotated.annotated);
+        let head = git(&work, &["rev-parse", "HEAD"]).stdout.trim().to_string();
+        assert_eq!(annotated.hash, head);
+
+        delete_tag(&git_path, &work, "v1.0.0").unwrap();
+        let listed = remote_tags(&git_path, &work, "origin").unwrap().tags;
+        let gone = listed.iter().find(|tag| tag.name == "v1.0.0").unwrap();
+        assert_eq!(gone.sync, TagSync::RemoteOnly);
+        fetch_remote_tag(&git_path, &work, "origin", "v1.0.0").unwrap();
+        assert!(fetch_remote_tag(&git_path, &work, "origin", "v1.0.0").is_err());
+        assert!(tag_list(&git_path, &work)
+            .unwrap()
+            .iter()
+            .any(|tag| tag.name == "v1.0.0"));
+
+        delete_tag(&git_path, &work, "v1.1.0").unwrap();
+        create_tag(&git_path, &work, "v1.1.0", "Replaced", "").unwrap();
+        let listed = remote_tags(&git_path, &work, "origin").unwrap().tags;
+        let moved = listed.iter().find(|tag| tag.name == "v1.1.0").unwrap();
+        assert_eq!(moved.sync, TagSync::Differs);
+        let err = push_tag(&git_path, &work, "origin", "v1.1.0").unwrap_err();
+        assert!(err.contains("already has a different tag"));
+
+        delete_remote_tag(&git_path, &work, "origin", "v1.1.0").unwrap();
+        let names: Vec<_> = remote_tags(&git_path, &work, "origin")
+            .unwrap()
+            .tags
+            .into_iter()
+            .map(|tag| tag.name)
+            .collect();
+        assert_eq!(names, ["v1.0.0"]);
+        assert!(tag_list(&git_path, &work)
+            .unwrap()
+            .iter()
+            .any(|tag| tag.name == "v1.1.0"));
     }
 
     #[test]

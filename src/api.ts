@@ -16,6 +16,7 @@ import type {
   RefreshActiveHours,
   RemoteEntry,
   RemoteOverview,
+  RemoteTagOverview,
   RepoActionResult,
   RepoEntry,
   RepoGroup,
@@ -538,6 +539,22 @@ export function createTag(path: string, name: string, message = "", target = "")
 
 export function deleteTag(path: string, name: string) {
   return invoke<string>("delete_tag", { path, name });
+}
+
+export function remoteTags(path: string, remote: string) {
+  return invoke<RemoteTagOverview>("remote_tags", { path, remote });
+}
+
+export function pushTag(path: string, remote: string, name: string) {
+  return invoke<string>("push_tag", { path, remote, name });
+}
+
+export function deleteRemoteTag(path: string, remote: string, name: string) {
+  return invoke<string>("delete_remote_tag", { path, remote, name });
+}
+
+export function fetchRemoteTag(path: string, remote: string, name: string) {
+  return invoke<string>("fetch_remote_tag", { path, remote, name });
 }
 
 export function writeTextFile(path: string, contents: string) {
