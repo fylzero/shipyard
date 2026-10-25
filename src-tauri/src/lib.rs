@@ -87,6 +87,7 @@ pub fn run() {
             commands::checkout_repo,
             commands::checkout_all,
             commands::log_graph,
+            commands::search_commits,
             commands::file_log,
             commands::working_tree,
             commands::repo_files,

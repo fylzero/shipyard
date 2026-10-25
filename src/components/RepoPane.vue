@@ -12,6 +12,7 @@ import FileHistoryList from "./FileHistoryList.vue";
 import FileTree from "./FileTree.vue";
 import CommitContextMenu from "./CommitContextMenu.vue";
 import CommitGraph from "./CommitGraph.vue";
+import CommitsHeader from "./CommitsHeader.vue";
 import DiffViewer from "./DiffViewer.vue";
 import Modal from "./Modal.vue";
 import PathLabel from "./PathLabel.vue";
@@ -23,6 +24,7 @@ import TagList from "./TagList.vue";
 import TerminalPane from "./TerminalPane.vue";
 import WorkingTree from "./WorkingTree.vue";
 import { useApp } from "../composables/useApp";
+import { useCommitSearch } from "../composables/useCommitSearch";
 import * as api from "../api";
 import type {
   BranchOverview,
@@ -329,6 +331,19 @@ const conflictCopy = computed(() => {
 });
 
 const current = computed(() => findRepo(props.repoId));
+const {
+  query: commitQuery,
+  searching: commitSearching,
+  truncated: commitSearchTruncated,
+  results: commitSearchResults,
+  inGraph: commitMatches,
+  older: olderCommitMatches,
+  matchHashes: commitMatchHashes,
+  current: currentCommitMatch,
+  index: commitMatchIndex,
+  active: commitSearchActive,
+  step: stepCommitMatch,
+} = useCommitSearch(() => current.value?.repo.path, commits);
 const resizing = ref(false);
 let resizeStartX = 0;
 let resizeStartWidth = 320;
@@ -694,7 +709,10 @@ async function loadRepo(options?: { overview?: boolean; graph?: boolean; silent?
       }
     }
     if (selectedCommit.value) {
-      const nextCommit = nextCommits.find((commit) => commit.hash === selectedCommit.value?.hash);
+      const hash = selectedCommit.value.hash;
+      const nextCommit =
+        nextCommits.find((commit) => commit.hash === hash) ??
+        commitSearchResults.value.find((commit) => commit.hash === hash);
       if (!nextCommit) {
         closeCommitDetail();
       } else {
@@ -794,6 +812,13 @@ async function selectCommit(commit: CommitNode) {
   const first = commitFiles.value[0];
   if (first) {
     await selectCommitFile(first);
+  }
+}
+
+function openCurrentCommitMatch() {
+  const commit = currentCommitMatch.value ?? olderCommitMatches.value[0];
+  if (commit && selectedCommit.value?.hash !== commit.hash) {
+    void selectCommit(commit);
   }
 }
 
@@ -3089,6 +3114,39 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
           :visible="branchesSubViewVisible"
           @select="selectBranchesSubView"
         />
+        <CommitsHeader
+          v-if="mainTab === 'commits'"
+          v-model:query="commitQuery"
+          :index="commitMatchIndex"
+          :total="commitMatches.length"
+          :older="olderCommitMatches.length"
+          :searching="commitSearching"
+          :truncated="commitSearchTruncated"
+          @step="stepCommitMatch"
+          @open="openCurrentCommitMatch"
+        />
+        <div
+          v-if="mainTab === 'commits' && olderCommitMatches.length"
+          class="commit-search-older"
+        >
+          <p class="muted tiny commit-search-older-title">
+            {{ olderCommitMatches.length }} older
+            {{ olderCommitMatches.length === 1 ? "match" : "matches" }} beyond the loaded graph
+          </p>
+          <button
+            v-for="commit in olderCommitMatches"
+            :key="commit.hash"
+            type="button"
+            class="commit-search-older-row"
+            :class="{ active: selectedCommit?.hash === commit.hash }"
+            :title="commit.subject"
+            @click="selectCommit(commit)"
+          >
+            <code class="commit-search-older-hash">{{ commit.hash.slice(0, 7) }}</code>
+            <span class="commit-search-older-subject">{{ commit.subject }}</span>
+            <span class="muted commit-search-older-date">{{ formatCommitDate(commit.date) }}</span>
+          </button>
+        </div>
         <BranchList
           v-if="branchesView"
           :overview="overview"
@@ -3143,6 +3201,8 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
           <CommitGraph
             :commits="commits"
             :selected-hash="selectedCommit?.hash ?? ''"
+            :matches="commitSearchActive ? commitMatchHashes : undefined"
+            :current-hash="currentCommitMatch?.hash ?? ''"
             @select="selectCommit"
             @menu="openCommitMenu"
           />

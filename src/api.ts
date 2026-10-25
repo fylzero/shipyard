@@ -6,6 +6,7 @@ import type {
   CommandLogEntry,
   CommitFile,
   CommitNode,
+  CommitSearch,
   DeleteMergedResult,
   DiffMode,
   FileBlame,
@@ -211,6 +212,10 @@ export function fileLog(path: string, file: string) {
 
 export function logGraph(path: string) {
   return invoke<CommitNode[]>("log_graph", { path });
+}
+
+export function searchCommits(path: string, query: string) {
+  return invoke<CommitSearch>("search_commits", { path, query });
 }
 
 export function workingTree(path: string) {

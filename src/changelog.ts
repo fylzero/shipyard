@@ -14,6 +14,10 @@ export const CHANGELOG: ChangelogRelease[] = [
       "While you're searching, groups with matches open on their own, and groups without matches are hidden. Your groups go back to how you left them when you clear the search.",
       "Dragging to reorder is turned off while you're searching. Fetch and Pull in the toolbar still act on every repository, not just the ones that match.",
       "When there isn't room for the whole toolbar, the Expand, Collapse, Sort, Fetch, and Pull buttons move to a second line.",
+      "The Commits tab has a search field above the graph. Type a full or partial commit SHA, or words from a commit message, to find commits on any branch. Press Command-F to jump to it.",
+      "Matching commits are highlighted in the graph and the rest are dimmed. Press Enter or Shift-Enter, or use the arrow buttons, to move between matches. Press Command-Enter to open the current match.",
+      "Matches older than the commits shown in the graph appear in a list under the search field. Click one to see its details.",
+      "Press Escape to clear the search.",
     ],
   },
   {

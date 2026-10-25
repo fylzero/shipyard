@@ -7,9 +7,9 @@ use crate::git;
 use crate::models::{
     sanitize_editor, sanitize_font_family, sanitize_font_size, sanitize_notifications,
     sanitize_refresh_active_hours, AppData, BranchOverview, BranchTracking, CommitFile, CommitNode,
-    DeleteMergedResult, FileBlame, GitConfig, LastCommit, RefreshActiveHours, RemoteEntry,
-    RemoteOverview, RepoActionResult, RepoEntry, RepoFile, RepoGroup, RepoStatus, StashEntry,
-    TagEntry, WorkingTreeFile,
+    CommitSearch, DeleteMergedResult, FileBlame, GitConfig, LastCommit, RefreshActiveHours,
+    RemoteEntry, RemoteOverview, RepoActionResult, RepoEntry, RepoFile, RepoGroup, RepoStatus,
+    StashEntry, TagEntry, WorkingTreeFile,
 };
 use crate::persist;
 
@@ -1019,6 +1019,16 @@ pub fn checkout_all(
 pub fn log_graph(state: State<AppState>, path: String) -> Result<Vec<CommitNode>, String> {
     let git = require_git(&state)?;
     git::log_graph(&git, Path::new(&path))
+}
+
+#[tauri::command]
+pub fn search_commits(
+    state: State<AppState>,
+    path: String,
+    query: String,
+) -> Result<CommitSearch, String> {
+    let git = require_git(&state)?;
+    git::search_commits(&git, Path::new(&path), &query)
 }
 
 #[tauri::command]

@@ -9,9 +9,9 @@ use std::time::{Duration, Instant};
 
 use crate::command_log;
 use crate::models::{
-    BlameLine, BranchOverview, BranchTracking, CommitFile, CommitNode, DeleteMergedResult,
-    FileBlame, GitConfig, LastCommit, LocalBranch, RemoteBranch, RemoteEntry, RemoteOverview,
-    RepoFile, StashEntry, TagEntry, WorkingTreeFile,
+    BlameLine, BranchOverview, BranchTracking, CommitFile, CommitNode, CommitSearch,
+    DeleteMergedResult, FileBlame, GitConfig, LastCommit, LocalBranch, RemoteBranch, RemoteEntry,
+    RemoteOverview, RepoFile, StashEntry, TagEntry, WorkingTreeFile,
 };
 
 pub struct GitOutput {
@@ -2935,6 +2935,73 @@ pub fn log_graph(git: &Path, repo: &Path) -> Result<Vec<CommitNode>, String> {
     Ok(parse_log_commits(&output.stdout))
 }
 
+const SEARCH_LIMIT: usize = 200;
+const LOG_FORMAT: &str = "--pretty=format:%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%D";
+
+fn looks_like_hash(query: &str) -> bool {
+    (4..=64).contains(&query.len()) && query.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+fn commit_by_hash(git: &Path, repo: &Path, hash: &str) -> Result<Option<CommitNode>, String> {
+    let spec = format!("{hash}^{{commit}}");
+    let resolved = run_git_quiet(git, repo, &["rev-parse", "--verify", "--quiet", &spec])?;
+    let full = resolved.stdout.trim();
+    if !resolved.success || full.is_empty() {
+        return Ok(None);
+    }
+    let output = run_git_quiet(git, repo, &["log", "-1", LOG_FORMAT, full])?;
+    if !output.success {
+        return Ok(None);
+    }
+    Ok(parse_log_commits(&output.stdout).into_iter().next())
+}
+
+pub fn search_commits(git: &Path, repo: &Path, query: &str) -> Result<CommitSearch, String> {
+    let query = query.trim();
+    let mut commits = Vec::new();
+    if query.is_empty() {
+        return Ok(CommitSearch {
+            commits,
+            truncated: false,
+        });
+    }
+    if looks_like_hash(query) {
+        commits.extend(commit_by_hash(git, repo, query)?);
+    }
+
+    let grep = format!("--grep={query}");
+    let max = format!("--max-count={}", SEARCH_LIMIT + 1);
+    let output = run_git_quiet(
+        git,
+        repo,
+        &[
+            "log",
+            "--all",
+            "--regexp-ignore-case",
+            "--fixed-strings",
+            &grep,
+            &max,
+            LOG_FORMAT,
+        ],
+    )?;
+    if !output.success {
+        return Err(or_fallback(
+            &combined_message(&output),
+            "Could not search commits.",
+        ));
+    }
+
+    let mut matches = parse_log_commits(&output.stdout);
+    let truncated = matches.len() > SEARCH_LIMIT;
+    matches.truncate(SEARCH_LIMIT);
+    for commit in matches {
+        if !commits.iter().any(|existing| existing.hash == commit.hash) {
+            commits.push(commit);
+        }
+    }
+    Ok(CommitSearch { commits, truncated })
+}
+
 fn parse_log_commits(stdout: &str) -> Vec<CommitNode> {
     stdout
         .lines()
@@ -5300,6 +5367,55 @@ filename README.md
         .unwrap();
         assert!(message.contains("MERP-234"));
         assert_eq!(current_branch(&git_bin(), &repo).unwrap(), "MERP-234");
+    }
+
+    #[test]
+    fn searches_commits_by_hash_and_message() {
+        let repo = init_repo();
+        fs::write(repo.join("README.md"), "one\n").unwrap();
+        git(&repo, &["commit", "-am", "Fix login (MERP-12)"]);
+        git(&repo, &["checkout", "-b", "feature"]);
+        fs::write(repo.join("README.md"), "two\n").unwrap();
+        git(&repo, &["commit", "-am", "Add feature"]);
+        git(&repo, &["checkout", "develop"]);
+        let feature = git(&repo, &["rev-parse", "feature"])
+            .stdout
+            .trim()
+            .to_string();
+
+        let by_message = search_commits(&git_bin(), &repo, "fix LOGIN (merp").unwrap();
+        assert_eq!(by_message.commits.len(), 1);
+        assert_eq!(by_message.commits[0].subject, "Fix login (MERP-12)");
+        assert!(!by_message.truncated);
+
+        let by_full = search_commits(&git_bin(), &repo, &feature).unwrap();
+        assert_eq!(by_full.commits.len(), 1);
+        assert_eq!(by_full.commits[0].subject, "Add feature");
+
+        let by_prefix = search_commits(&git_bin(), &repo, &feature[..8]).unwrap();
+        assert_eq!(by_prefix.commits[0].hash, feature);
+
+        git(
+            &repo,
+            &[
+                "commit",
+                "--allow-empty",
+                "-m",
+                &format!("Revert {feature}"),
+            ],
+        );
+        let deduped = search_commits(&git_bin(), &repo, &feature).unwrap();
+        assert_eq!(deduped.commits.len(), 2);
+        assert_eq!(deduped.commits[0].hash, feature);
+
+        assert!(search_commits(&git_bin(), &repo, "  ")
+            .unwrap()
+            .commits
+            .is_empty());
+        assert!(search_commits(&git_bin(), &repo, "nothing here")
+            .unwrap()
+            .commits
+            .is_empty());
     }
 
     #[test]

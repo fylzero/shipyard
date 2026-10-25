@@ -502,6 +502,13 @@ pub struct CommitNode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CommitSearch {
+    pub commits: Vec<CommitNode>,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoFile {
     pub path: String,
     pub ignored: bool,

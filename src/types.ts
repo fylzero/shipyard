@@ -108,6 +108,11 @@ export interface CommitNode {
   status?: string;
 }
 
+export interface CommitSearch {
+  commits: CommitNode[];
+  truncated: boolean;
+}
+
 export interface WorkingTreeFile {
   path: string;
   status: string;

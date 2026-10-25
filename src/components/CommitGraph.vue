@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { rangeIds, toggleId } from "../selection";
 import type { CommitNode } from "../types";
 import {
@@ -16,7 +16,27 @@ import {
 const props = defineProps<{
   commits: CommitNode[];
   selectedHash?: string;
+  matches?: Set<string>;
+  currentHash?: string;
 }>();
+
+const root = ref<HTMLElement | null>(null);
+
+function revealRow(hash: string | undefined) {
+  if (!hash) {
+    return;
+  }
+  const row = root.value?.querySelector<HTMLElement>(`[data-hash="${hash}"]`);
+  const viewport = row?.closest<HTMLElement>(".graph-scroll");
+  if (!row || !viewport) {
+    return;
+  }
+  const rowRect = row.getBoundingClientRect();
+  const viewRect = viewport.getBoundingClientRect();
+  if (rowRect.top < viewRect.top || rowRect.bottom > viewRect.bottom) {
+    row.scrollIntoView({ block: "center" });
+  }
+}
 
 const emit = defineEmits<{
   select: [commit: CommitNode];
@@ -124,6 +144,16 @@ function showDatePopover(event: MouseEvent, value: string) {
 
 watch(() => [props.commits, props.selectedHash], hideDatePopover);
 
+watch(
+  () => props.currentHash,
+  (hash) => void nextTick(() => revealRow(hash)),
+);
+
+watch(
+  () => props.selectedHash,
+  (hash) => void nextTick(() => revealRow(hash)),
+);
+
 onMounted(() => {
   window.addEventListener("scroll", hideDatePopover, true);
   window.addEventListener("resize", hideDatePopover);
@@ -139,14 +169,17 @@ onUnmounted(() => {
 
 <template>
   <div v-if="!commits.length" class="muted" style="padding: 1rem">No commits yet.</div>
-  <div v-else class="commit-graph">
+  <div v-else ref="root" class="commit-graph" :class="{ searching: matches }">
     <div
       v-for="row in layout.rows"
       :key="row.commit.hash"
       class="commit-graph-row"
+      :data-hash="row.commit.hash"
       :class="{
         active: selectedHash === row.commit.hash,
         selected: isSelected(row.commit.hash),
+        match: matches?.has(row.commit.hash),
+        'current-match': currentHash === row.commit.hash,
       }"
       role="button"
       tabindex="0"
