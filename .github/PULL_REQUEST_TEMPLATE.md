@@ -20,7 +20,7 @@
 - [ ] Tested manually in development mode (`bun run tauri dev`)
 - [ ] Tested a release build (`bun run tauri build`)
 - [ ] TypeScript check passes (`bun run build`)
-- [ ] Rust check passes (`cd src-tauri && cargo check`)
+- [ ] Rust checks pass (`cd src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test`)
 
 ## Screenshots or Demo
 
@@ -36,6 +36,4 @@
 
 ## Related Issues
 
-<!-- Link any related issues here using #issue_number -->
-
-Closes #
+<!-- Link any related issues here, e.g. "Closes #123" -->

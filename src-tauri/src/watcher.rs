@@ -300,7 +300,11 @@ fn start_watch(
     Ok(())
 }
 
-fn stop_watch(state: State<RepoWatcherState>, path: String, scope: WatchScope) -> Result<(), String> {
+fn stop_watch(
+    state: State<RepoWatcherState>,
+    path: String,
+    scope: WatchScope,
+) -> Result<(), String> {
     let key = watch_key(&path);
     if key.is_empty() {
         return Ok(());
@@ -481,7 +485,10 @@ mod tests {
             None
         );
         assert_eq!(classify_change(&repo, Path::new("/wt/.git")), Some(false));
-        assert_eq!(classify_change(&repo, Path::new("/wt/src/a.rs")), Some(false));
+        assert_eq!(
+            classify_change(&repo, Path::new("/wt/src/a.rs")),
+            Some(false)
+        );
         assert_eq!(classify_change(&repo, Path::new("/main/src/a.rs")), None);
     }
 

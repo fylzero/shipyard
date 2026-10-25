@@ -29,7 +29,7 @@ Shipyard is designed for developers who manage multiple repositories and want a 
 - **Stash Support**: Save, apply, pop, and drop stashes with individual stash inspection
 - **Tag Management**: Create, delete, and view both lightweight and annotated tags
 - **File History & Blame**: Track changes to individual files over time with line-by-line authorship
-- **Diff Viewer**: Inline or split diff views with syntax highlighting and customizable fonts
+- **Diff Viewer**: Inline or split diff views with customizable fonts
 - **Cherry-pick & Revert**: Apply or undo commits across branches
 - **Integrated Terminal**: Open terminals in repository directories without leaving the app
 - **Smart Refresh**: Configurable auto-refresh with active hours to avoid unnecessary Git operations
@@ -51,7 +51,7 @@ Recommended screenshots to capture:
 
 ### Requirements
 
-- **macOS**: Apple Silicon (ARM64) required
+- **macOS**: Apple Silicon (ARM64) required. Intel Macs are not currently supported.
 - **Git**: Must be installed and available in your PATH
 
 ### Installation
@@ -59,18 +59,6 @@ Recommended screenshots to capture:
 1. Download the latest release: [Shipyard-macos-arm64.dmg](https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-macos-arm64.dmg)
 2. Open the DMG and drag Shipyard to your Applications folder
 3. Launch Shipyard from Applications
-
-#### Opening an unsigned macOS app
-
-If you see a warning that Shipyard cannot be opened because it is from an unidentified developer:
-
-1. Right-click (or Control-click) the Shipyard app in Finder
-2. Select **Open** from the context menu
-3. Click **Open** in the confirmation dialog
-
-This is only required the first time you launch a locally built or unsigned version. Signed releases from GitHub do not require this step.
-
-**Note**: Current releases are built for **Apple Silicon (ARM64) Macs only**. Intel Macs are not currently supported.
 
 ## Development
 
@@ -118,6 +106,8 @@ cargo --version
 rustc --version
 ```
 
+You do not need to `source` anything for `bun run tauri dev`. That script already prepends `$HOME/.cargo/bin` to `PATH`.
+
 #### 4. Git
 
 ```bash
@@ -161,7 +151,7 @@ When the build finishes:
 | Artifact | Path |
 | --- | --- |
 | App bundle | `src-tauri/target/release/bundle/macos/Shipyard.app` |
-| Disk image | `src-tauri/target/release/bundle/dmg/Shipyard_1.15.0_aarch64.dmg` |
+| Disk image | `src-tauri/target/release/bundle/dmg/Shipyard_<version>_aarch64.dmg` |
 
 To run it locally, open the `.app` (or drag it to `/Applications`). macOS Gatekeeper may warn that an unsigned local build is unidentified: right-click the app, choose **Open**, then confirm.
 

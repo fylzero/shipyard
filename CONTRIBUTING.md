@@ -4,48 +4,7 @@ Thanks for your interest in contributing to Shipyard! This document provides gui
 
 ## Development Setup
 
-Shipyard is a [Tauri](https://v2.tauri.app/) app with a Vue frontend and Rust backend. You'll need the following tools installed:
-
-- **Bun** - JavaScript runtime and package manager ([bun.sh](https://bun.sh/))
-- **Rust** - via [rustup](https://www.rust-lang.org/tools/install)
-- **Xcode Command Line Tools** - provides the C/C++ compiler for macOS
-- **Git** - Shipyard shells out to your system's `git` binary
-
-### Getting Started
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/fylzero/shipyard.git
-   cd shipyard
-   ```
-
-2. Install Xcode Command Line Tools (if not already installed):
-   ```bash
-   xcode-select --install
-   ```
-
-3. Install Bun:
-   ```bash
-   curl -fsSL https://bun.sh/install | bash
-   ```
-
-4. Install Rust:
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
-   After installation, open a new terminal or run `. "$HOME/.cargo/env"`
-
-5. Install JavaScript dependencies:
-   ```bash
-   bun install
-   ```
-
-6. Start the development server:
-   ```bash
-   bun run tauri dev
-   ```
-
-The first build will take several minutes as it downloads and compiles Rust dependencies. Subsequent builds are much faster.
+Shipyard is a [Tauri](https://v2.tauri.app/) app with a Vue frontend and Rust backend. Follow the [Development section of the README](README.md#development) to install the prerequisites (Bun, Rust, Xcode Command Line Tools, and Git) and run the app with `bun run tauri dev`.
 
 ## Code Style
 
@@ -57,12 +16,12 @@ The first build will take several minutes as it downloads and compiles Rust depe
 
 ### Backend (Rust)
 - Follow standard Rust conventions and idioms
-- Use `cargo fmt` to format code
-- Address `cargo clippy` warnings when practical
+- Run `cargo fmt` to format code
+- Fix all `cargo clippy` warnings; CI treats them as errors
 
 ## Running Checks
 
-Before submitting a pull request, run the following checks:
+Before submitting a pull request, run the following checks. CI runs the same checks on every pull request.
 
 ### TypeScript Type Check
 ```bash
@@ -73,8 +32,9 @@ This runs `vue-tsc --noEmit` and `vite build` to catch type errors.
 ### Rust Check
 ```bash
 cd src-tauri
-cargo check
-cargo clippy
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
 ```
 
 ### Build a Release Bundle (Optional)

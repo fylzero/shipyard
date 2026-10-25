@@ -6,10 +6,10 @@ use tauri::{AppHandle, State};
 use crate::git;
 use crate::models::{
     sanitize_editor, sanitize_font_family, sanitize_font_size, sanitize_notifications,
-    sanitize_refresh_active_hours,
-    AppData, BranchOverview, BranchTracking, CommitFile, CommitNode, DeleteMergedResult, FileBlame,
-    GitConfig, LastCommit, RefreshActiveHours, RemoteEntry, RemoteOverview, RepoActionResult,
-    RepoEntry, RepoFile, RepoGroup, RepoStatus, StashEntry, TagEntry, WorkingTreeFile,
+    sanitize_refresh_active_hours, AppData, BranchOverview, BranchTracking, CommitFile, CommitNode,
+    DeleteMergedResult, FileBlame, GitConfig, LastCommit, RefreshActiveHours, RemoteEntry,
+    RemoteOverview, RepoActionResult, RepoEntry, RepoFile, RepoGroup, RepoStatus, StashEntry,
+    TagEntry, WorkingTreeFile,
 };
 use crate::persist;
 
@@ -91,7 +91,11 @@ fn find_repo_entry(data: &AppData, group_id: &str, repo_id: &str) -> Result<Repo
         .ok_or_else(|| "Repository not found".to_string())
 }
 
-fn repo_entry(state: &AppState, group_id: &str, repo_id: &str) -> Result<(PathBuf, RepoEntry), String> {
+fn repo_entry(
+    state: &AppState,
+    group_id: &str,
+    repo_id: &str,
+) -> Result<(PathBuf, RepoEntry), String> {
     let git = require_git(state)?;
     let data = state.data.lock().map_err(|err| err.to_string())?;
     let repo = find_repo_entry(&data, group_id, repo_id)?;
@@ -161,7 +165,11 @@ pub fn rename_group(
 }
 
 #[tauri::command]
-pub fn delete_group(app: AppHandle, state: State<AppState>, group_id: String) -> Result<(), String> {
+pub fn delete_group(
+    app: AppHandle,
+    state: State<AppState>,
+    group_id: String,
+) -> Result<(), String> {
     let mut data = state.data.lock().map_err(|err| err.to_string())?;
     let before = data.groups.len();
     data.groups.retain(|group| group.id != group_id);
@@ -172,7 +180,11 @@ pub fn delete_group(app: AppHandle, state: State<AppState>, group_id: String) ->
 }
 
 #[tauri::command]
-pub fn toggle_group(app: AppHandle, state: State<AppState>, group_id: String) -> Result<bool, String> {
+pub fn toggle_group(
+    app: AppHandle,
+    state: State<AppState>,
+    group_id: String,
+) -> Result<bool, String> {
     let mut data = state.data.lock().map_err(|err| err.to_string())?;
     let group = find_group_mut(&mut data, &group_id)?;
     group.expanded = !group.expanded;
@@ -456,7 +468,8 @@ fn sanitize_app_data(mut data: AppData) -> Result<AppData, String> {
         } else {
             fallbacks
         };
-        group.header_color = sanitize_color(&group.header_color).unwrap_or_else(|| "#16323c".into());
+        group.header_color =
+            sanitize_color(&group.header_color).unwrap_or_else(|| "#16323c".into());
         sanitize_repos(&mut group.repos)?;
     }
     Ok(data)
@@ -540,7 +553,10 @@ pub fn reorder_group_repos(
     persist_data(&app, &data)
 }
 
-fn repo_list_mut<'a>(data: &'a mut AppData, group_id: &str) -> Result<&'a mut Vec<RepoEntry>, String> {
+fn repo_list_mut<'a>(
+    data: &'a mut AppData,
+    group_id: &str,
+) -> Result<&'a mut Vec<RepoEntry>, String> {
     if group_id == STANDALONE_GROUP_ID {
         return Ok(&mut data.repos);
     }
@@ -704,7 +720,11 @@ pub fn update_repo(
         let repo = data
             .repos
             .iter_mut()
-            .chain(data.groups.iter_mut().flat_map(|group| group.repos.iter_mut()))
+            .chain(
+                data.groups
+                    .iter_mut()
+                    .flat_map(|group| group.repos.iter_mut()),
+            )
             .find(|repo| repo.id == repo_id)
             .ok_or_else(|| "Repository not found".to_string())?;
         if let Some(label) = label {
@@ -837,7 +857,10 @@ pub async fn pull_repo(
 }
 
 #[tauri::command]
-pub fn pull_current(state: State<AppState>, group_id: String) -> Result<Vec<RepoActionResult>, String> {
+pub fn pull_current(
+    state: State<AppState>,
+    group_id: String,
+) -> Result<Vec<RepoActionResult>, String> {
     let (git, group) = repo_list(&state, &group_id)?;
     Ok(group
         .repos
@@ -856,7 +879,11 @@ pub fn pull_current(state: State<AppState>, group_id: String) -> Result<Vec<Repo
             RepoActionResult {
                 path: repo.path,
                 ok: output.success,
-                message: fallback_message(&git::combined_message(&output), output.success, "Pulled current branch"),
+                message: fallback_message(
+                    &git::combined_message(&output),
+                    output.success,
+                    "Pulled current branch",
+                ),
             }
         })
         .collect())
@@ -971,18 +998,20 @@ pub fn checkout_all(
     Ok(group
         .repos
         .into_iter()
-        .map(|repo| match git::checkout_with_fallbacks(&git, Path::new(&repo.path), &branches) {
-            Ok(message) => RepoActionResult {
-                path: repo.path,
-                ok: true,
-                message,
+        .map(
+            |repo| match git::checkout_with_fallbacks(&git, Path::new(&repo.path), &branches) {
+                Ok(message) => RepoActionResult {
+                    path: repo.path,
+                    ok: true,
+                    message,
+                },
+                Err(message) => RepoActionResult {
+                    path: repo.path,
+                    ok: false,
+                    message,
+                },
             },
-            Err(message) => RepoActionResult {
-                path: repo.path,
-                ok: false,
-                message,
-            },
-        })
+        )
         .collect())
 }
 
@@ -993,7 +1022,11 @@ pub fn log_graph(state: State<AppState>, path: String) -> Result<Vec<CommitNode>
 }
 
 #[tauri::command]
-pub fn file_log(state: State<AppState>, path: String, file: String) -> Result<Vec<CommitNode>, String> {
+pub fn file_log(
+    state: State<AppState>,
+    path: String,
+    file: String,
+) -> Result<Vec<CommitNode>, String> {
     let git = require_git(&state)?;
     git::file_log(&git, Path::new(&path), &file)
 }
@@ -1123,7 +1156,11 @@ pub fn stage_all(state: State<AppState>, path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn unstage_files(state: State<AppState>, path: String, files: Vec<String>) -> Result<(), String> {
+pub fn unstage_files(
+    state: State<AppState>,
+    path: String,
+    files: Vec<String>,
+) -> Result<(), String> {
     let git = require_git(&state)?;
     let files: Vec<&str> = files.iter().map(String::as_str).collect();
     git::unstage_files(&git, Path::new(&path), &files)
@@ -1246,9 +1283,11 @@ pub async fn checkout_commit(
     hash: String,
 ) -> Result<String, String> {
     let git = require_git(&state)?;
-    tauri::async_runtime::spawn_blocking(move || git::checkout_commit(&git, Path::new(&path), &hash))
-        .await
-        .map_err(|err| err.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        git::checkout_commit(&git, Path::new(&path), &hash)
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]
@@ -1272,9 +1311,11 @@ pub async fn revert_commits(
     hashes: Vec<String>,
 ) -> Result<String, String> {
     let git = require_git(&state)?;
-    tauri::async_runtime::spawn_blocking(move || git::revert_commits(&git, Path::new(&path), &hashes))
-        .await
-        .map_err(|err| err.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        git::revert_commits(&git, Path::new(&path), &hashes)
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]
@@ -1321,7 +1362,10 @@ pub async fn merge_local_branch(
 }
 
 #[tauri::command]
-pub async fn list_remotes(state: State<'_, AppState>, path: String) -> Result<Vec<RemoteEntry>, String> {
+pub async fn list_remotes(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Vec<RemoteEntry>, String> {
     let git = require_git(&state)?;
     tauri::async_runtime::spawn_blocking(move || git::list_remotes(&git, Path::new(&path)))
         .await
@@ -1511,9 +1555,11 @@ pub async fn reset_unpushed_commits(
     path: String,
 ) -> Result<String, String> {
     let git = require_git(&state)?;
-    tauri::async_runtime::spawn_blocking(move || git::reset_unpushed_commits(&git, Path::new(&path)))
-        .await
-        .map_err(|err| err.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        git::reset_unpushed_commits(&git, Path::new(&path))
+    })
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]
@@ -1613,8 +1659,8 @@ pub async fn stash_files(
         let files: Vec<&str> = files.iter().map(String::as_str).collect();
         git::stash_files(&git, Path::new(&path), &files, &message)
     })
-        .await
-        .map_err(|err| err.to_string())?
+    .await
+    .map_err(|err| err.to_string())?
 }
 
 #[tauri::command]
@@ -1907,7 +1953,10 @@ mod tests {
         assert_eq!(data.groups[0].id, "g2");
         assert!(data.groups[0].repos.is_empty());
         assert_eq!(
-            data.repos.iter().map(|repo| repo.id.as_str()).collect::<Vec<_>>(),
+            data.repos
+                .iter()
+                .map(|repo| repo.id.as_str())
+                .collect::<Vec<_>>(),
             ["r2", "r1"]
         );
 

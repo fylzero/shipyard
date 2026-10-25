@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for your interest in improving Shipyard! Please describe the feature you'd like to see.
-  
+
   - type: textarea
     id: problem
     attributes:
@@ -15,7 +15,7 @@ body:
       placeholder: I'm frustrated when... / It would be helpful if...
     validations:
       required: true
-  
+
   - type: textarea
     id: solution
     attributes:
@@ -24,14 +24,14 @@ body:
       placeholder: I'd like Shipyard to...
     validations:
       required: true
-  
+
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives Considered
       description: Have you considered any alternative solutions or workarounds?
       placeholder: I've tried... / Another approach could be...
-  
+
   - type: textarea
     id: additional
     attributes:
