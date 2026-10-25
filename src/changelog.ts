@@ -6,6 +6,19 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.17.0",
+    date: "October 25, 2026",
+    notes: [
+      "The Tags tab now has Local and Remote buttons and a filter field, just like the Branches tab. Type part of a tag name, its message, or a commit SHA to narrow the list, or press Command-F to jump to the field.",
+      "Tags you create in Shipyard can now be published. Click Publish on a tag to push it to the selected remote. Shipyard asks first, because pushing a tag can start release automation on the server.",
+      "Local tags that aren't on the remote yet show a Not published label, and the line above the list tells you how many there are.",
+      "Publishing never replaces a tag on the server. If the remote already has a different tag with the same name, the tag shows Differs and Publish is turned off.",
+      "The Remote view lists the tags on the server. Tags you don't have yet show Not fetched, and you can click Fetch to download just that tag. Fetch never replaces a local tag with the same name.",
+      "Delete in the Remote view removes a tag from the server for everyone. Your local copy is kept.",
+      "Fixed deleting a tag that has the same name as a branch.",
+    ],
+  },
+  {
     version: "1.16.0",
     date: "October 25, 2026",
     notes: [
