@@ -17,6 +17,7 @@ jobs:
   frontend:
     name: Frontend Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -32,6 +33,7 @@ jobs:
   backend:
     name: Backend Check
     runs-on: macos-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
 
@@ -44,6 +46,11 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          cache-on-failure: true
+
+      - name: Check compilation
+        working-directory: src-tauri
+        run: cargo check --locked
 
       - name: Check formatting
         working-directory: src-tauri

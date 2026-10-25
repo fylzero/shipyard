@@ -38,14 +38,31 @@ Shipyard is designed for developers who manage multiple repositories and want a 
 - **Command History**: Inspect every Git command Shipyard runs under the hood
 - **Pull Request Helpers**: Generate GitHub/GitLab pull request URLs for branches
 
-<!-- TODO: Add screenshots or demo GIF showing the main interface
-Recommended screenshots to capture:
-1. Dashboard view with multiple repository groups
-2. Commit history with visual graph and file changes
-3. Working tree with staged/unstaged changes and diff viewer
-4. Branch list with tracking information
-5. Repository settings showing group configuration
--->
+## Screenshots
+
+### Dashboard with Repository Groups
+
+![Dashboard view showing multiple repository groups and operations](docs/screenshots/01-dashboard.png)
+
+### Commit History and File Changes
+
+![Commit history with visual graph, file changes, and diffs](docs/screenshots/02-history.png)
+
+### Working Tree Management
+
+![Working tree showing staged, unstaged, and untracked changes with diff viewer](docs/screenshots/03-working-tree.png)
+
+### Branch Management
+
+![Branch list with tracking information and merge status](docs/screenshots/04-branches.png)
+
+### Repository Settings
+
+![Repository group configuration and settings](docs/screenshots/05-settings.png)
+
+### Demo
+
+![Demo showing Shipyard in action](docs/demo.gif)
 
 ## Download and Install
 
