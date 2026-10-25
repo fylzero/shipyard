@@ -3445,6 +3445,15 @@ input[type="text"].branch-search-query {
   font-weight: 400;
 }
 
+.tag-row .branch-row-name {
+  flex-shrink: 0;
+  max-width: 40%;
+}
+
+.tag-row .tag-row-message {
+  flex: 1;
+}
+
 .tag-row-icon {
   width: 0.9rem;
   height: 0.9rem;
