@@ -1,0 +1,11 @@
+# Screenshots directory
+
+This directory will contain the five screenshots for the README once `scripts/capture/capture.sh` is run:
+
+- `01-dashboard.png` - Dashboard view with repository groups
+- `02-history.png` - Commit history with visual graph
+- `03-working-tree.png` - Working tree with changes
+- `04-branches.png` - Branch list with tracking info
+- `05-settings.png` - Repository settings
+
+Run `bash scripts/capture/capture.sh` to generate these screenshots.
