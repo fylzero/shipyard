@@ -148,7 +148,8 @@ fn format_command(program: &Path, args: &[&str]) -> String {
 fn quote(value: &str) -> String {
     if !value.is_empty()
         && value.chars().all(|c| {
-            c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '=' | ':' | '@' | '+' | ',')
+            c.is_ascii_alphanumeric()
+                || matches!(c, '-' | '_' | '.' | '/' | '=' | ':' | '@' | '+' | ',')
         })
     {
         return value.to_string();
@@ -236,11 +237,8 @@ mod tests {
 
     fn temp_log() -> PathBuf {
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "shipyard-history-{}-{}",
-            std::process::id(),
-            n
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("shipyard-history-{}-{}", std::process::id(), n));
         let _ = fs::create_dir_all(&dir);
         dir.join("command-history.jsonl")
     }
@@ -274,12 +272,18 @@ mod tests {
             .iter()
             .filter(|entry| entry.cwd == "/tmp/repo-a")
             .collect();
-        assert!(mine.iter().any(|entry| entry.command == "git status --porcelain"));
-        assert!(mine.iter().any(|entry| entry.command == "git pull" && !entry.success));
+        assert!(mine
+            .iter()
+            .any(|entry| entry.command == "git status --porcelain"));
+        assert!(mine
+            .iter()
+            .any(|entry| entry.command == "git pull" && !entry.success));
 
         init(path, None);
         let reloaded = list();
-        assert!(reloaded.iter().any(|entry| entry.cwd == "/tmp/repo-a" && entry.args.contains(&"pull".into())));
+        assert!(reloaded
+            .iter()
+            .any(|entry| entry.cwd == "/tmp/repo-a" && entry.args.contains(&"pull".into())));
 
         clear().unwrap();
         assert!(!list().iter().any(|entry| entry.cwd == "/tmp/repo-a"));

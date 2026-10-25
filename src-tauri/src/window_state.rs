@@ -2,7 +2,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::Duration;
 
-use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, State, WebviewWindow, Window, WindowEvent};
+use tauri::{
+    AppHandle, LogicalPosition, LogicalSize, Manager, State, WebviewWindow, Window, WindowEvent,
+};
 
 use crate::commands::AppState;
 use crate::models::{WindowState, MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH};
@@ -184,8 +186,10 @@ pub fn update_window_state(
     {
         let data = state.data.lock().map_err(|err| err.to_string())?;
         if let Some(prev) = &data.window {
-            geometry_changed =
-                prev.x != next.x || prev.y != next.y || prev.width != next.width || prev.height != next.height;
+            geometry_changed = prev.x != next.x
+                || prev.y != next.y
+                || prev.width != next.width
+                || prev.height != next.height;
             if next.maximized {
                 next.x = prev.x;
                 next.y = prev.y;

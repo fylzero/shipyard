@@ -77,7 +77,9 @@ pub fn sanitize_editor(value: &str) -> String {
     let value = value.trim();
     if value.is_empty()
         || value.len() > 80
-        || value.chars().any(|c| c.is_control() || c == '/' || c == '\\' || c == '\0')
+        || value
+            .chars()
+            .any(|c| c.is_control() || c == '/' || c == '\\' || c == '\0')
     {
         return default_editor();
     }
@@ -143,11 +145,7 @@ pub fn sanitize_clock(value: &str) -> Option<String> {
     let hour = parts.next()?.parse::<u32>().ok()?;
     let minute = parts.next()?.parse::<u32>().ok()?;
     if let Some(seconds) = parts.next() {
-        let seconds = seconds
-            .split('.')
-            .next()?
-            .parse::<u32>()
-            .ok()?;
+        let seconds = seconds.split('.').next()?.parse::<u32>().ok()?;
         if seconds > 59 {
             return None;
         }
@@ -273,7 +271,12 @@ impl AppData {
             .chain(self.groups.iter().map(|group| group.id.as_str()))
             .collect();
         let mut ids: Vec<String> = Vec::with_capacity(known.len());
-        for id in self.dashboard_order.iter().map(String::as_str).chain(known.iter().copied()) {
+        for id in self
+            .dashboard_order
+            .iter()
+            .map(String::as_str)
+            .chain(known.iter().copied())
+        {
             if known.contains(&id) && !ids.iter().any(|item| item == id) {
                 ids.push(id.to_string());
             }
@@ -358,7 +361,10 @@ mod tests {
         assert_eq!(sanitize_font_family("SF Mono"), "sf-mono");
         assert_eq!(sanitize_font_family("Fira Code"), "Fira Code");
         assert_eq!(sanitize_font_family(""), "jetbrains");
-        assert_eq!(sanitize_font_family("/System/Library/Fonts/Menlo.ttc"), "jetbrains");
+        assert_eq!(
+            sanitize_font_family("/System/Library/Fonts/Menlo.ttc"),
+            "jetbrains"
+        );
     }
 
     #[test]
