@@ -67,20 +67,30 @@ jobs:
   backend-linux:
     name: Backend Check (Linux)
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-cache
+          key: apt-${{ runner.arch }}-${{ hashFiles('.github/workflows/*.yml') }}
+          restore-keys: apt-${{ runner.arch }}-
+
       - name: Install system dependencies
-        timeout-minutes: 14
+        timeout-minutes: 18
         run: |
           sudo rm -f /var/lib/man-db/auto-update
-          apt="apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o DPkg::Lock::Timeout=60"
+          mkdir -p ~/apt-cache/partial
+          apt="apt-get -o Dir::Cache::Archives=$HOME/apt-cache -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 -o DPkg::Lock::Timeout=60"
           for attempt in 1 2 3; do
-            if sudo timeout 240 sh -c "$apt update && $apt install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev"; then
+            if sudo timeout 300 sh -c "$apt update && $apt install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev"; then
+              sudo chown -R "$USER" ~/apt-cache
               exit 0
             fi
-            echo "::warning::apt-get attempt $attempt failed or stalled, retrying"
+            echo "::warning::apt-get attempt $attempt failed or stalled, retrying on archive.ubuntu.com"
+            sudo sed -i 's#http://azure.archive.ubuntu.com/#http://archive.ubuntu.com/#' /etc/apt/apt-mirrors.txt 2>/dev/null || true
             sudo dpkg --configure -a || true
             sleep 10
           done
