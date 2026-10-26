@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.18.0",
+    date: "October 26, 2026",
+    notes: [
+      "Shipyard now runs on Linux. Download the AppImage, .deb, or .rpm for x64 or ARM64 from the README or the release page. Help → Check for Updates… keeps each one current, and the .deb and .rpm ask for your password to install an update.",
+      "On Linux, Open in File Manager and Show in File Manager use your desktop's file manager, and conflicted files open with the editor's command, such as code for VS Code or subl for Sublime Text. System default uses your desktop's default app for the file type.",
+    ],
+  },
+  {
     version: "1.17.0",
     date: "October 25, 2026",
     notes: [

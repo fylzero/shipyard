@@ -7,6 +7,7 @@ import {
   fileParentFolder,
   type IgnoreKind,
 } from "../gitOperation";
+import { fileManagerName } from "../platform";
 
 const props = defineProps<{
   files: WorkingTreeFile[];
@@ -214,7 +215,7 @@ watch(
           :disabled="!onDisk"
           @click="emit('reveal')"
         >
-          Show in Finder
+          Show in {{ fileManagerName }}
         </button>
         <div class="context-menu-sep" />
         <button

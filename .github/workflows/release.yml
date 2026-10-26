@@ -6,8 +6,14 @@ on:
     tags:
       - "v*"
 
+env:
+  RELEASE_BODY: >-
+    macOS: download Shipyard-macos-arm64.dmg for Apple Silicon Macs.
+    Linux: download Shipyard-linux-x64.AppImage, .deb, or .rpm for Intel and AMD PCs,
+    or the Shipyard-linux-arm64 files for ARM.
+
 jobs:
-  release:
+  macos:
     permissions:
       contents: write
     runs-on: macos-latest
@@ -63,9 +69,61 @@ jobs:
           tauriScript: bash scripts/build-macos-release.sh
           tagName: v__VERSION__
           releaseName: Shipyard v__VERSION__
-          releaseBody: "Download Shipyard-macos-arm64.dmg for Apple Silicon Macs."
+          releaseBody: ${{ env.RELEASE_BODY }}
           releaseDraft: false
           prerelease: false
           uploadUpdaterJson: true
           args: "--target aarch64-apple-darwin"
           releaseAssetNamePattern: "Shipyard-macos-arm64[ext]"
+
+  linux:
+    # Runs after macOS and one architecture at a time, so each upload merges into
+    # the release's latest.json instead of racing another job and dropping its entries.
+    needs: macos
+    permissions:
+      contents: write
+    strategy:
+      max-parallel: 1
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x64
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tauriScript: bun run tauri
+          tagName: v__VERSION__
+          releaseName: Shipyard v__VERSION__
+          releaseBody: ${{ env.RELEASE_BODY }}
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: true
+          releaseAssetNamePattern: "Shipyard-linux-${{ matrix.arch }}[ext]"

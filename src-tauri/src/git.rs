@@ -8,6 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::command_log;
+use crate::desktop;
 use crate::models::{
     BlameLine, BranchOverview, BranchTracking, CommitFile, CommitNode, CommitSearch,
     DeleteMergedResult, FileBlame, GitConfig, LastCommit, LocalBranch, RemoteBranch, RemoteEntry,
@@ -980,29 +981,41 @@ pub fn editor_app_name(editor: &str) -> Option<String> {
     }
 }
 
+/// What `desktop::open_with` launches: the app name on macOS, or its command elsewhere.
+#[cfg(target_os = "macos")]
+pub fn editor_launcher(editor: &str) -> Option<String> {
+    editor_app_name(editor)
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn editor_launcher(editor: &str) -> Option<String> {
+    let command = match editor.trim() {
+        "" | "system" => return None,
+        "vscode" => "code",
+        "intellij" => "idea",
+        "sublime" => "subl",
+        other => other,
+    };
+    Some(command.into())
+}
+
 pub fn open_in_editor(repo: &Path, file: &str, editor: &str) -> Result<(), String> {
     require_file_path(file)?;
     let path = repo.join(file);
     if !path.exists() {
         return Err("That file is not on disk. It may have been deleted in this conflict.".into());
     }
-    let mut command = Command::new("open");
-    if let Some(app) = editor_app_name(editor) {
-        command.arg("-a").arg(&app).arg("--").arg(&path);
-    } else {
-        command.arg(&path);
-    }
-    let status = command
-        .status()
-        .map_err(|err| format!("Could not open the file: {err}"))?;
-    if status.success() {
-        Ok(())
-    } else if let Some(app) = editor_app_name(editor) {
-        Err(format!(
+    let opened = match editor_launcher(editor) {
+        Some(launcher) => desktop::open_with(&path, &launcher),
+        None => desktop::open(&path),
+    };
+    match (opened, editor_app_name(editor)) {
+        (Ok(true), _) => Ok(()),
+        (_, Some(app)) => Err(format!(
             "Could not open the file in {app}. Pick another editor in General settings."
-        ))
-    } else {
-        Err("Could not open the file in an editor.".into())
+        )),
+        (Err(err), None) => Err(format!("Could not open the file: {err}")),
+        (Ok(false), None) => Err("Could not open the file in an editor.".into()),
     }
 }
 
@@ -1013,14 +1026,13 @@ pub fn open_repo_in_finder(path: &Path) -> Result<(), String> {
         }
         return Err("That repository folder is missing.".into());
     }
-    let status = Command::new("open")
-        .arg(path)
-        .status()
-        .map_err(|err| format!("Could not open the repository in Finder: {err}"))?;
-    if status.success() {
+    let fm = desktop::FILE_MANAGER;
+    let opened = desktop::open(path)
+        .map_err(|err| format!("Could not open the repository in {fm}: {err}"))?;
+    if opened {
         Ok(())
     } else {
-        Err("Could not open the repository in Finder.".into())
+        Err(format!("Could not open the repository in {fm}."))
     }
 }
 
@@ -1029,15 +1041,13 @@ pub fn reveal_file_in_finder(repo: &Path, file: &str) -> Result<(), String> {
     if !path.exists() {
         return Err("That file is not on disk.".into());
     }
-    let status = Command::new("open")
-        .arg("-R")
-        .arg(&path)
-        .status()
-        .map_err(|err| format!("Could not show the file in Finder: {err}"))?;
-    if status.success() {
+    let fm = desktop::FILE_MANAGER;
+    let revealed =
+        desktop::reveal(&path).map_err(|err| format!("Could not show the file in {fm}: {err}"))?;
+    if revealed {
         Ok(())
     } else {
-        Err("Could not show the file in Finder.".into())
+        Err(format!("Could not show the file in {fm}."))
     }
 }
 
@@ -7309,6 +7319,17 @@ filename README.md
             Some("Visual Studio Code")
         );
         assert_eq!(editor_app_name("BBEdit").as_deref(), Some("BBEdit"));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn maps_editor_setting_to_command() {
+        assert_eq!(editor_launcher("system"), None);
+        assert_eq!(editor_launcher("cursor").as_deref(), Some("cursor"));
+        assert_eq!(editor_launcher("vscode").as_deref(), Some("code"));
+        assert_eq!(editor_launcher("sublime").as_deref(), Some("subl"));
+        assert_eq!(editor_launcher("intellij").as_deref(), Some("idea"));
+        assert_eq!(editor_launcher("nvim-qt").as_deref(), Some("nvim-qt"));
     }
 
     #[test]

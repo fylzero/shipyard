@@ -13,6 +13,7 @@ import {
 } from "../../fonts";
 import { EDITOR_OPTIONS, type DiffMode, type NotificationMode } from "../../types";
 import { NOTIFICATION_MODES } from "../../notifications";
+import { defaultAppSource, systemNotificationsTarget } from "../../platform";
 
 const FILES_PANE_MIN = 220;
 const FILES_PANE_MAX = 800;
@@ -259,7 +260,7 @@ async function resetFilesPaneWidth() {
           <div class="settings-row-copy">
             <h3>System notifications</h3>
             <p class="muted tiny">
-              When to also send results to macOS Notification Center. In background only
+              When to also send results {{ systemNotificationsTarget }}. In background only
               notifies while Shipyard isn't the active app.
             </p>
           </div>
@@ -359,8 +360,8 @@ async function resetFilesPaneWidth() {
           <div class="settings-row-copy">
             <h3>Editor</h3>
             <p class="muted tiny">
-              Used when you open a conflicted file. System default follows the macOS file
-              association.
+              Used when you open a conflicted file. System default follows
+              {{ defaultAppSource }}.
             </p>
           </div>
           <label class="settings-control">

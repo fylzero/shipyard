@@ -54,9 +54,9 @@ body:
   - type: input
     id: macos
     attributes:
-      label: macOS Version
-      description: Which version of macOS are you running?
-      placeholder: e.g., macOS 14.5 (Sonoma)
+      label: Operating System
+      description: Your macOS version, or your Linux distro, version, and desktop
+      placeholder: e.g., macOS 14.5 (Sonoma) or Ubuntu 24.04 (GNOME)
 
   - type: textarea
     id: logs

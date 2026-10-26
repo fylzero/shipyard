@@ -8,6 +8,7 @@ import { useApp } from "../composables/useApp";
 import { conflictCountLabel } from "../gitOperation";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
 import { useTabs } from "../composables/useTabs";
+import { fileManagerName } from "../platform";
 import { STANDALONE_GROUP_ID, type RepoEntry } from "../types";
 import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
@@ -302,7 +303,7 @@ async function saveEdit() {
           role="menuitem"
           @click.stop="onOpenInFinder"
         >
-          Open in Finder
+          Open in {{ fileManagerName }}
         </button>
         <button
           class="overflow-menu-item"

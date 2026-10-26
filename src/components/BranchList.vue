@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
 import { filterBranches } from "./BranchesHeader.vue";
+import { commandKeyName } from "../platform";
 import { rangeIds, toggleId } from "../selection";
 import type { BranchOverview, LocalBranch } from "../types";
 
@@ -272,7 +273,7 @@ onUnmounted(() => {
         :title="
           selectedBranches.length
             ? `Delete ${selectedBranches.length} selected branches`
-            : 'Command-click or Shift-click branches to select them'
+            : `${commandKeyName}-click or Shift-click branches to select them`
         "
         @click="deleteSelected"
       >

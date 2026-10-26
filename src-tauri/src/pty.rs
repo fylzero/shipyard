@@ -52,9 +52,13 @@ fn default_shell() -> String {
     {
         return std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into());
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
     {
         "/bin/zsh".into()
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        "/bin/sh".into()
     }
 }
 

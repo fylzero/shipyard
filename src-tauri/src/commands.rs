@@ -3,6 +3,7 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, State};
 
+use crate::desktop;
 use crate::git;
 use crate::models::{
     sanitize_editor, sanitize_font_family, sanitize_font_size, sanitize_notifications,
@@ -1898,12 +1899,9 @@ pub fn save_git_config_file(state: State<AppState>, contents: String) -> Result<
 pub fn reveal_git_config_file() -> Result<(), String> {
     let path = git::git_config_path();
     if path.is_file() {
-        let status = std::process::Command::new("open")
-            .arg("-R")
-            .arg(&path)
-            .status()
+        let revealed = desktop::reveal(&path)
             .map_err(|err| format!("Could not reveal the git config file: {err}"))?;
-        if status.success() {
+        if revealed {
             return Ok(());
         }
         return Err("Could not reveal the git config file.".into());
@@ -1911,11 +1909,9 @@ pub fn reveal_git_config_file() -> Result<(), String> {
     let parent = path.parent().filter(|dir| dir.is_dir()).ok_or_else(|| {
         "Git config file does not exist yet. Save a value to create it.".to_string()
     })?;
-    let status = std::process::Command::new("open")
-        .arg(parent)
-        .status()
+    let opened = desktop::open(parent)
         .map_err(|err| format!("Could not open the git config folder: {err}"))?;
-    if status.success() {
+    if opened {
         Ok(())
     } else {
         Err("Could not open the git config folder.".into())
@@ -1936,12 +1932,9 @@ pub fn reveal_settings_file(app: AppHandle) -> Result<(), String> {
     if !path.exists() {
         persist::save(&app, &AppData::default())?;
     }
-    let status = std::process::Command::new("open")
-        .arg("-R")
-        .arg(&path)
-        .status()
+    let revealed = desktop::reveal(&path)
         .map_err(|err| format!("Could not reveal the settings file: {err}"))?;
-    if status.success() {
+    if revealed {
         Ok(())
     } else {
         Err("Could not reveal the settings file.".into())

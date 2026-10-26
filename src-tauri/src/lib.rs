@@ -1,5 +1,6 @@
 mod command_log;
 mod commands;
+mod desktop;
 mod git;
 mod menu;
 mod models;

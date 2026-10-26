@@ -45,7 +45,7 @@ The built app will be at `src-tauri/target/release/bundle/macos/Shipyard.app`
 
 ## Opening Issues
 
-- **Bug reports**: Describe what you expected to happen, what actually happened, and steps to reproduce. Include the macOS version and Shipyard version if relevant.
+- **Bug reports**: Describe what you expected to happen, what actually happened, and steps to reproduce. Include your operating system (macOS version, or Linux distro and desktop) and Shipyard version if relevant.
 - **Feature requests**: Explain the use case and why the feature would be valuable.
 
 Use the issue templates when available to ensure you provide all the necessary information.
