@@ -137,6 +137,9 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --locked --all-targets -- -D warnings
 
+      - name: Disable Git line ending conversion
+        run: git config --global core.autocrlf false
+
       - name: Run Rust tests
         working-directory: src-tauri
         run: cargo test --locked
