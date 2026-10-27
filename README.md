@@ -12,7 +12,7 @@
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-macos-arm64.dmg"><img src="docs/download-macos.svg" alt="Download Shipyard for macOS" height="56"></a>
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-x64.exe"><img src="docs/download-windows.svg" alt="Download Shipyard for Windows" height="56"></a>
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.AppImage"><img src="docs/download-linux.svg" alt="Download Shipyard for Linux" height="56"></a>
-  <a href="https://buymeacoffee.com/fylzero1"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" height="56"></a>
+  <a href="https://buymeacoffee.com/fylzero"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" height="56"></a>
 </p>
 
 <p align="center">
