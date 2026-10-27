@@ -1,7 +1,7 @@
 [package]
 name = "shipyard"
 version = "1.19.0"
-description = "A local-first Git client"
+description = "A fast, native-feeling Git client"
 authors = ["RazorKode LLC"]
 license = "MIT"
 edition = "2021"

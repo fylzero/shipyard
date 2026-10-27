@@ -9,27 +9,28 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-macos-arm64.dmg"><img src="docs/download-macos.svg" alt="Download Shipyard for macOS" height="56"></a>
-  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-x64.exe"><img src="docs/download-windows.svg" alt="Download Shipyard for Windows" height="56"></a>
-  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.AppImage"><img src="docs/download-linux.svg" alt="Download Shipyard for Linux" height="56"></a>
-  <a href="https://buymeacoffee.com/fylzero"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" height="56"></a>
+  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-macos-arm64.dmg"><img src="docs/download-macos.svg" alt="Download Shipyard for macOS" height="48"></a>
+  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-x64.exe"><img src="docs/download-windows.svg" alt="Download Shipyard for Windows" height="48"></a>
+  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.AppImage"><img src="docs/download-linux.svg" alt="Download Shipyard for Linux" height="48"></a>
 </p>
 
 <p align="center">
-  Windows on ARM:
-  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-arm64.exe">installer</a>
-  <br>
-  Other Linux downloads:
-  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.deb">.deb</a> ·
+  Also available:
+  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-arm64.exe">Windows ARM64</a> ·
+  Linux <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.deb">.deb</a>,
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.rpm">.rpm</a> ·
-  ARM64 <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-arm64.AppImage">AppImage</a>,
+  Linux ARM64 <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-arm64.AppImage">AppImage</a>,
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-arm64.deb">.deb</a>,
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-arm64.rpm">.rpm</a>
 </p>
 
+<p align="center">
+  <a href="https://buymeacoffee.com/fylzero"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" height="40"></a>
+</p>
+
 ## What is Shipyard?
 
-Shipyard is a local-first Git client built with Tauri, Vue, and Rust. It talks directly to the `git` binary already on your machine, so it uses your existing SSH agent, credential helper, and user identity—no separate login required.
+Shipyard is an open source Git client built with Tauri, Vue, and Rust. It talks directly to the `git` binary already on your machine, so it uses your existing SSH agent, credential helper, and user identity—no separate login required.
 
 Shipyard is designed for developers who manage multiple repositories and want a native desktop experience on macOS, Windows, or Linux with powerful Git features without sacrificing speed or control.
 
