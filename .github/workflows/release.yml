@@ -11,6 +11,8 @@ env:
     macOS: download Shipyard-macos-arm64.dmg for Apple Silicon Macs.
     Linux: download Shipyard-linux-x64.AppImage, .deb, or .rpm for Intel and AMD PCs,
     or the Shipyard-linux-arm64 files for ARM.
+    Windows: download Shipyard-windows-x64.exe for Intel and AMD PCs, or Shipyard-windows-arm64.exe for ARM.
+    The Windows installer isn't code-signed yet, so SmartScreen may warn: click More info, then Run anyway.
 
 jobs:
   macos:
@@ -147,3 +149,55 @@ jobs:
           prerelease: false
           uploadUpdaterJson: true
           releaseAssetNamePattern: "Shipyard-linux-${{ matrix.arch }}[ext]"
+
+  windows:
+    # Runs after Linux and one architecture at a time for the same latest.json reason.
+    # ARM64 is cross-compiled on the x64 runner, which has the MSVC ARM64 build tools.
+    needs: linux
+    permissions:
+      contents: write
+    strategy:
+      max-parallel: 1
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            arch: x64
+          - target: aarch64-pc-windows-msvc
+            arch: arm64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          key: ${{ matrix.target }}
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # The package.json script sets PATH the Unix way, which would break PATH on Windows.
+          tauriScript: bunx tauri
+          tagName: v__VERSION__
+          releaseName: Shipyard v__VERSION__
+          releaseBody: ${{ env.RELEASE_BODY }}
+          releaseDraft: false
+          prerelease: false
+          uploadUpdaterJson: true
+          args: "--target ${{ matrix.target }} --bundles nsis"
+          releaseAssetNamePattern: "Shipyard-windows-${{ matrix.arch }}[ext]"

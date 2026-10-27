@@ -6,6 +6,15 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.19.0",
+    date: "October 26, 2026",
+    notes: [
+      "Shipyard now runs on Windows 10 and 11. Download the installer for x64 or ARM64 from the README or the release page. It installs for your user account without asking for administrator rights, and Help → Check for Updates… keeps it current. The installer isn't code-signed yet, so if SmartScreen warns about it, click More info, then Run anyway.",
+      "On Windows, Shipyard uses Git for Windows, from your PATH or its usual install folder, and runs it without flashing console windows.",
+      "On Windows, Open in File Explorer and Show in File Explorer use File Explorer, the terminal panel starts PowerShell, and conflicted files open in Cursor, VS Code, Zed, Sublime Text, or PhpStorm from your PATH or the editor's usual install folder.",
+    ],
+  },
+  {
     version: "1.18.0",
     date: "October 26, 2026",
     notes: [

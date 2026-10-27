@@ -322,7 +322,7 @@ const canClone = computed(
 );
 
 const cloneDestination = computed(() => {
-  const parent = cloneParent.value.trim().replace(/\/+$/, "");
+  const parent = cloneParent.value.trim().replace(/[\\/]+$/, "");
   const name = cloneName.value.trim();
   return parent && name ? `${parent}/${name}` : "";
 });
@@ -334,8 +334,9 @@ function repoNameFromUrl(url: string) {
 }
 
 function parentDir(path: string) {
-  const index = path.replace(/\/+$/, "").lastIndexOf("/");
-  return index > 0 ? path.slice(0, index) : "";
+  const trimmed = path.replace(/[\\/]+$/, "");
+  const index = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return index > 0 ? trimmed.slice(0, index) : "";
 }
 
 async function defaultCloneParent() {

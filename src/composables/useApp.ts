@@ -37,6 +37,7 @@ import {
   sendSystemNotification,
   windowFocused,
 } from "../notifications";
+import { baseName } from "../platform";
 
 const groups = ref<RepoGroup[]>([]);
 const standaloneRepos = ref<RepoEntry[]>([]);
@@ -1029,8 +1030,7 @@ export function useApp() {
   function repoDisplayName(repoId: string, path: string) {
     return (
       statuses.value[repoId]?.name ??
-      path.split("/").filter(Boolean).pop() ??
-      path
+      baseName(path)
     );
   }
 

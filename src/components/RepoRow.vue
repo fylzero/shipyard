@@ -8,7 +8,7 @@ import { useApp } from "../composables/useApp";
 import { conflictCountLabel } from "../gitOperation";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
 import { useTabs } from "../composables/useTabs";
-import { fileManagerName } from "../platform";
+import { baseName, fileManagerName } from "../platform";
 import { STANDALONE_GROUP_ID, type RepoEntry } from "../types";
 import BranchContextMenu from "./BranchContextMenu.vue";
 import BranchIcon from "./BranchIcon.vue";
@@ -55,11 +55,6 @@ const headerStyle = computed(() => {
     "--group-header-fg": contrastingText(color),
   };
 });
-
-function folderName(path: string) {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
 
 function handleClick(event: MouseEvent) {
   if (editing.value) {
@@ -183,7 +178,7 @@ async function saveEdit() {
     </span>
     <span class="repo-identity">
       <RepoIcon />
-      <span class="repo-name">{{ statuses[repo.id]?.name ?? folderName(repo.path) }}</span>
+      <span class="repo-name">{{ statuses[repo.id]?.name ?? baseName(repo.path) }}</span>
       <span v-if="!editing && repo.label" class="repo-label">{{ repo.label }}</span>
       <input
         v-if="editing"

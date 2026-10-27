@@ -50,7 +50,10 @@ fn default_shell() -> String {
     }
     #[cfg(windows)]
     {
-        return std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into());
+        crate::desktop::find_program("pwsh.exe")
+            .or_else(|| crate::desktop::find_program("powershell.exe"))
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_else(|| std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into()))
     }
     #[cfg(target_os = "macos")]
     {

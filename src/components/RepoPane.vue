@@ -46,6 +46,7 @@ import type {
 } from "../types";
 import { STANDALONE_GROUP_ID } from "../types";
 import { formatCommitDate } from "../graphLayout";
+import { baseName } from "../platform";
 import {
   abortLabel,
   absoluteFilePath,
@@ -1103,8 +1104,7 @@ async function runPull(branch?: string): Promise<boolean> {
   const groupId = match.group?.id ?? STANDALONE_GROUP_ID;
   const name =
     match.status?.name ??
-    match.repo.path.split("/").filter(Boolean).pop() ??
-    match.repo.path;
+    baseName(match.repo.path);
   try {
     const result = await api.pullRepo(groupId, match.repo.id, branch);
     presentActionResults(

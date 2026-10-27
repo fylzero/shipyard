@@ -22,6 +22,22 @@ pub struct GitOutput {
     pub success: bool,
 }
 
+#[cfg(windows)]
+pub fn resolve_git_binary() -> Option<PathBuf> {
+    if let Some(path) = look_on_path("git.exe").or_else(|| look_on_path("git.cmd")) {
+        return Some(path);
+    }
+    let program_files = std::env::var_os("ProgramFiles").map(PathBuf::from);
+    let local_programs =
+        std::env::var_os("LOCALAPPDATA").map(|dir| PathBuf::from(dir).join("Programs"));
+    [program_files, local_programs]
+        .into_iter()
+        .flatten()
+        .map(|dir| dir.join("Git").join("cmd").join("git.exe"))
+        .find(|path| path.is_file())
+}
+
+#[cfg(unix)]
 pub fn resolve_git_binary() -> Option<PathBuf> {
     if let Some(path) = look_on_path("git") {
         return Some(path);
@@ -72,13 +88,25 @@ fn run_git_quiet(git: &Path, repo: &Path, args: &[&str]) -> Result<GitOutput, St
     run_git_inner(git, repo, args, false)
 }
 
+/**
+ * A git process that never prompts on a terminal and opens no console
+ * window. Status and diff otherwise refresh the index stat cache and rewrite
+ * `.git/index`, and the file watcher then runs them again. Optional locks
+ * are only that cache update; add, commit, and restore still lock.
+ */
+fn git_command(git: &Path) -> Command {
+    let mut command = desktop::command(git);
+    command
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0");
+    command
+}
+
 fn run_git_stdin(git: &Path, cwd: &Path, args: &[&str], input: &str) -> Result<GitOutput, String> {
-    let mut command = Command::new(git);
+    let mut command = git_command(git);
     command
         .args(args)
         .current_dir(cwd)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_OPTIONAL_LOCKS", "0")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -112,15 +140,8 @@ fn run_git_command(
     log: bool,
 ) -> Result<GitOutput, String> {
     let started = Instant::now();
-    let mut command = Command::new(git);
-    // Status and diff otherwise refresh the index stat cache and rewrite
-    // `.git/index`. The file watcher then runs them again. Optional locks
-    // are only that cache update; add, commit, and restore still lock.
-    command
-        .args(args)
-        .current_dir(cwd)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_OPTIONAL_LOCKS", "0");
+    let mut command = git_command(git);
+    command.args(args).current_dir(cwd);
     for (key, value) in extra_env {
         command.env(key, value);
     }
@@ -197,9 +218,16 @@ fn validate_named_ref(name: &str, kind: &str) -> Result<(), String> {
 
 const GIT_CONFIG_MAX_BYTES: usize = 1_000_000;
 
+/// HOME, or on Windows the profile folder, which is where Git looks when HOME isn't set.
+fn home_dir() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").filter(|home| !home.is_empty());
+    #[cfg(windows)]
+    let home = home.or_else(|| std::env::var_os("USERPROFILE"));
+    home.map(PathBuf::from)
+}
+
 fn config_cwd() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
+    home_dir()
         .filter(|path| path.is_dir())
         .unwrap_or_else(std::env::temp_dir)
 }
@@ -224,7 +252,7 @@ fn global_write_path(file: Option<&Path>) -> PathBuf {
             return PathBuf::from(path);
         }
     }
-    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let home = home_dir();
     if let Some(path) = home.as_ref().map(|dir| dir.join(".gitconfig")) {
         if path.is_file() {
             return path;
@@ -547,11 +575,9 @@ fn spawn_network_git(
     capture_stdout: bool,
 ) -> Result<GitOutput, String> {
     let started = Instant::now();
-    let mut child = match Command::new(git)
+    let mut child = match git_command(git)
         .args(args)
         .current_dir(repo)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_OPTIONAL_LOCKS", "0")
         .env("GCM_INTERACTIVE", "Never")
         .env(
             "GIT_SSH_COMMAND",
@@ -3510,11 +3536,9 @@ fn merge_out_staged_changes_in(
 fn run_git_to_file(git: &Path, repo: &Path, args: &[&str], dest: &Path) -> Result<(), String> {
     let started = Instant::now();
     let file = fs::File::create(dest).map_err(discard_io_error)?;
-    let result = Command::new(git)
+    let result = git_command(git)
         .args(args)
         .current_dir(repo)
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_OPTIONAL_LOCKS", "0")
         .stdout(Stdio::from(file))
         .stderr(Stdio::piped())
         .output()

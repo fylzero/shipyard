@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted } from "vue";
 import type { RepoActionResult } from "../types";
 import { useBackdropClose } from "../composables/useBackdropClose";
+import { baseName } from "../platform";
 
 const props = defineProps<{
   title: string;
@@ -15,11 +16,6 @@ const emit = defineEmits<{
 const backdrop = useBackdropClose(() => emit("close"));
 
 const failed = computed(() => props.results.filter((item) => !item.ok).length);
-
-function folderName(path: string) {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
 
 function isDetailed(message: string) {
   return message.includes("\n");
@@ -66,7 +62,7 @@ onUnmounted(() => {
             :class="result.ok ? 'ok' : 'bad'"
           >
             <div class="output-line">
-              <span class="output-name">{{ folderName(result.path) }}</span>
+              <span class="output-name">{{ baseName(result.path) }}</span>
               <template v-if="!isDetailed(result.message)">
                 <span class="output-sep"> — </span>
                 <span class="output-message">{{ result.message }}</span>

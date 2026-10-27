@@ -5,16 +5,20 @@
 <h1 align="center">Shipyard</h1>
 
 <p align="center">
-  A fast, native-feeling, open source Git client for macOS and Linux.
+  A fast, native-feeling, open source Git client for macOS, Windows, and Linux.
 </p>
 
 <p align="center">
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-macos-arm64.dmg"><img src="docs/download-macos.svg" alt="Download Shipyard for macOS" height="56"></a>
+  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-x64.exe"><img src="docs/download-windows.svg" alt="Download Shipyard for Windows" height="56"></a>
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.AppImage"><img src="docs/download-linux.svg" alt="Download Shipyard for Linux" height="56"></a>
   <a href="https://buymeacoffee.com/fylzero1"><img src="docs/buy-me-a-coffee.svg" alt="Buy me a coffee" height="56"></a>
 </p>
 
 <p align="center">
+  Windows on ARM:
+  <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-arm64.exe">installer</a>
+  <br>
   Other Linux downloads:
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.deb">.deb</a> ·
   <a href="https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-linux-x64.rpm">.rpm</a> ·
@@ -27,7 +31,7 @@
 
 Shipyard is a local-first Git client built with Tauri, Vue, and Rust. It talks directly to the `git` binary already on your machine, so it uses your existing SSH agent, credential helper, and user identity—no separate login required.
 
-Shipyard is designed for developers who manage multiple repositories and want a native desktop experience on macOS or Linux with powerful Git features without sacrificing speed or control.
+Shipyard is designed for developers who manage multiple repositories and want a native desktop experience on macOS, Windows, or Linux with powerful Git features without sacrificing speed or control.
 
 ## Features
 
@@ -79,14 +83,25 @@ Shipyard is designed for developers who manage multiple repositories and want a 
 ### Requirements
 
 - **macOS**: Apple Silicon (ARM64) required. Intel Macs are not currently supported.
+- **Windows**: Windows 10 or 11, x64 or ARM64
 - **Linux**: x64 or ARM64 with WebKitGTK 4.1 (Ubuntu 22.04, Debian 12, Fedora 36, or newer)
-- **Git**: Must be installed and available in your PATH
+- **Git**: Must be installed and available in your PATH. On Windows, install [Git for Windows](https://git-scm.com/download/win).
 
 ### Installation on macOS
 
 1. Download the latest release: [Shipyard-macos-arm64.dmg](https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-macos-arm64.dmg)
 2. Open the DMG and drag Shipyard to your Applications folder
 3. Launch Shipyard from Applications
+
+### Installation on Windows
+
+1. Download the latest installer: [Shipyard-windows-x64.exe](https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-x64.exe), or [Shipyard-windows-arm64.exe](https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-arm64.exe) on ARM PCs like Snapdragon laptops
+2. Run it. It installs Shipyard for your user account without asking for administrator rights
+3. Launch Shipyard from the Start menu
+
+The installer isn't code-signed yet, so Windows SmartScreen may say **Windows protected your PC**. Click **More info**, then **Run anyway**. **Help → Check for Updates…** keeps Shipyard current.
+
+Shipyard finds Git on your `PATH` or in Git for Windows' install folder. Conflicted files open with the editor's command on your `PATH`, or from its usual install folder for Cursor, VS Code, Zed, and Sublime Text. The terminal panel starts PowerShell.
 
 ### Installation on Linux
 
@@ -104,7 +119,7 @@ To open conflicted files in an editor, its command has to be on your `PATH`: `cu
 
 ## Development
 
-Want to build Shipyard from source or contribute? You'll need **Bun**, **Rust**, **Git**, and a C toolchain: **Xcode Command Line Tools** on macOS, or the **WebKitGTK** development packages on Linux.
+Want to build Shipyard from source or contribute? You'll need **Bun**, **Rust**, **Git**, and a C toolchain: **Xcode Command Line Tools** on macOS, the **Visual Studio Build Tools** on Windows, or the **WebKitGTK** development packages on Linux.
 
 ### Prerequisites
 
@@ -132,6 +147,8 @@ sudo apt install build-essential curl libwebkit2gtk-4.1-dev libxdo-dev libssl-de
 
 For Fedora, Arch, and other distros, see [Tauri's Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux).
 
+**Windows:** install the [Build Tools for Visual Studio](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the **Desktop development with C++** workload. See [Tauri's Windows prerequisites](https://v2.tauri.app/start/prerequisites/#windows) for details. WebView2 already comes with Windows 10 and 11.
+
 #### 2. Bun
 
 Install with the official script from [bun.sh](https://bun.sh/):
@@ -141,6 +158,8 @@ curl -fsSL https://bun.sh/install | bash
 bun --version
 ```
 
+On Windows, run `powershell -c "irm bun.sh/install.ps1 | iex"` instead.
+
 #### 3. Rust
 
 Tauri compiles the native app with `cargo`. Install the official toolchain with [rustup](https://www.rust-lang.org/tools/install):
@@ -148,6 +167,8 @@ Tauri compiles the native app with `cargo`. Install the official toolchain with 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
+
+On Windows, download and run `rustup-init.exe` from the same page and keep the default MSVC toolchain.
 
 Accept the defaults, then **open a new terminal**. Confirm:
 
@@ -164,7 +185,7 @@ You do not need to `source` anything for `bun run tauri dev`. That script alread
 git --version
 ```
 
-Homebrew Git, your distro's `git` package, and `/usr/bin/git` all work. Shipyard shells out to whatever `git` is on your PATH.
+Homebrew Git, your distro's `git` package, `/usr/bin/git`, and Git for Windows all work. Shipyard shells out to whatever `git` is on your PATH.
 
 ### Building and Running
 
@@ -187,6 +208,8 @@ This command:
 1. Starts Vite on `http://localhost:1430` for the Vue UI
 2. Compiles the Rust/Tauri shell
 3. Opens the native Shipyard window
+
+On Windows, run `bunx tauri dev` instead. The `tauri` script sets `PATH` the Unix way, which doesn't work there.
 
 The **first** `tauri dev` (or `tauri build`) downloads crates and compiles from scratch, which often takes several minutes. Later runs are much faster.
 
@@ -213,11 +236,18 @@ On Linux, the build produces:
 | Debian package | `src-tauri/target/release/bundle/deb/Shipyard_<version>_amd64.deb` |
 | RPM package | `src-tauri/target/release/bundle/rpm/Shipyard-<version>-1.x86_64.rpm` |
 
+On Windows, `bunx tauri build` produces:
+
+| Artifact | Path |
+| --- | --- |
+| Installer | `src-tauri/target/release/bundle/nsis/Shipyard_<version>_x64-setup.exe` |
+| MSI package | `src-tauri/target/release/bundle/msi/Shipyard_<version>_x64_en-US.msi` |
+
 ### Publishing Signed Releases
 
-Pushing a `v*` tag runs the Release workflow. It builds and notarizes the macOS app first, then builds the Linux x64 and ARM64 packages and adds them to the same GitHub release.
+Pushing a `v*` tag runs the Release workflow. It builds and notarizes the macOS app first, then builds the Linux x64 and ARM64 packages, then the Windows x64 and ARM64 installers, and adds them all to the same GitHub release.
 
-See [macOS release setup](docs/macos-releases.md) for Apple enrollment, repository secrets, and the signing and notarization checks, and [Linux releases](docs/linux-releases.md) for the Linux packages and how they update.
+See [macOS release setup](docs/macos-releases.md) for Apple enrollment, repository secrets, and the signing and notarization checks, [Linux releases](docs/linux-releases.md) for the Linux packages and how they update, and [Windows releases](docs/windows-releases.md) for the Windows installers and code signing.
 
 ### Troubleshooting
 
@@ -230,8 +260,11 @@ Xcode Command Line Tools are missing or stale. Run `xcode-select --install` (or 
 **`The system library 'webkit2gtk-4.1' required by crate 'webkit2gtk-sys' was not found`** (Linux)  
 The WebKitGTK development package is missing. Install the Linux packages from step 1.
 
-**`Could not open the file in Visual Studio Code`** (Linux)  
+**`Could not open the file in Visual Studio Code`** (Linux or Windows)  
 The editor's command (`code` for VS Code) is not on the `PATH` Shipyard was launched with. Install the editor's shell command, or pick **System default** in General settings.
+
+**`Git was not found`** (Windows)  
+Install [Git for Windows](https://git-scm.com/download/win), then restart Shipyard so it picks up the new `PATH`.
 
 **Vite starts but no native window**  
 Leave the first Rust compile running. If it fails, the error is in the same terminal as `bun run tauri dev`.

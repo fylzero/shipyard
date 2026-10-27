@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import * as api from "../api";
+import { baseName } from "../platform";
 import type { CommandLogEntry } from "../types";
 
 const entries = ref<CommandLogEntry[]>([]);
@@ -33,11 +34,6 @@ function isStatusNoise(entry: CommandLogEntry) {
 const visibleEntries = computed(() =>
   hideStatus.value ? entries.value.filter((entry) => !isStatusNoise(entry)) : entries.value,
 );
-
-function folderName(path: string) {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
 
 function formatStamp(at: number) {
   return new Date(at).toLocaleString(undefined, { hour12: false });
@@ -229,7 +225,7 @@ async function clearLogs() {
         >
           <header class="history-meta">
             <span class="history-time">{{ formatStamp(entry.at) }}</span>
-            <span class="history-cwd" :title="entry.cwd">{{ folderName(entry.cwd) }}</span>
+            <span class="history-cwd" :title="entry.cwd">{{ baseName(entry.cwd) }}</span>
             <span class="history-status">
               {{ entry.success ? "exit 0" : "failed" }} · {{ entry.durationMs }}ms
             </span>

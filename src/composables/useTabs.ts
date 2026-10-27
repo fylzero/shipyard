@@ -1,5 +1,6 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import { baseName } from "../platform";
 import { useApp } from "./useApp";
 
 export const GROUPS_TAB_ID = "groups";
@@ -32,11 +33,6 @@ const settingsTabOpen = ref(false);
 const changelogTabOpen = ref(false);
 const settingsSection = ref<SettingsSection>("general");
 const activeId = ref(GROUPS_TAB_ID);
-
-function folderName(path: string) {
-  const parts = path.split("/").filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
 
 export function isSettingsSection(value: unknown): value is SettingsSection {
   return SETTINGS_SECTIONS.includes(value as SettingsSection);
@@ -81,7 +77,7 @@ export function useTabs() {
       return match.status.name;
     }
     if (match?.repo.path) {
-      return folderName(match.repo.path);
+      return baseName(match.repo.path);
     }
     return id;
   }
