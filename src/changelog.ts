@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.19.1",
+    date: "November 6, 2026",
+    notes: [
+      "Fixed Create pull request… and other links to your host opening the wrong address when origin uses SSH over port 443, such as ssh.bitbucket.org, ssh.github.com, or altssh.gitlab.com. They now open bitbucket.org, github.com, or gitlab.com.",
+    ],
+  },
+  {
     version: "1.19.0",
     date: "October 26, 2026",
     notes: [

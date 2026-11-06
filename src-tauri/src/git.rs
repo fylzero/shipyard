@@ -1181,7 +1181,21 @@ fn browse_url_from_ssh_or_git(remote: &str) -> Option<String> {
     if host.is_empty() || path.is_empty() {
         return None;
     }
-    Some(format!("https://{host}/{}", strip_git_suffix(path)))
+    Some(format!(
+        "https://{}/{}",
+        web_host_for_ssh_host(host),
+        strip_git_suffix(path)
+    ))
+}
+
+// SSH-over-443 hosts only speak SSH, so links must use the provider's web host.
+fn web_host_for_ssh_host(host: &str) -> &str {
+    match host.to_ascii_lowercase().as_str() {
+        "ssh.github.com" => "github.com",
+        "altssh.gitlab.com" => "gitlab.com",
+        "ssh.bitbucket.org" => "bitbucket.org",
+        _ => host,
+    }
 }
 
 fn browse_url_from_scp(remote: &str) -> Option<String> {
@@ -1200,7 +1214,11 @@ fn browse_url_from_scp(remote: &str) -> Option<String> {
     if host.is_empty() || host.contains('/') {
         return None;
     }
-    Some(format!("https://{host}/{}", strip_git_suffix(path)))
+    Some(format!(
+        "https://{}/{}",
+        web_host_for_ssh_host(host),
+        strip_git_suffix(path)
+    ))
 }
 
 pub fn ref_exists(git: &Path, repo: &Path, git_ref: &str) -> bool {
@@ -7391,6 +7409,22 @@ filename README.md
         assert_eq!(
             remote_browse_url("git@bitbucket.org:owner/repo.git").unwrap(),
             "https://bitbucket.org/owner/repo"
+        );
+        assert_eq!(
+            remote_browse_url("ssh://git@ssh.bitbucket.org:443/owner/repo.git").unwrap(),
+            "https://bitbucket.org/owner/repo"
+        );
+        assert_eq!(
+            remote_browse_url("git@ssh.bitbucket.org:owner/repo.git").unwrap(),
+            "https://bitbucket.org/owner/repo"
+        );
+        assert_eq!(
+            remote_browse_url("ssh://git@ssh.github.com:443/owner/repo.git").unwrap(),
+            "https://github.com/owner/repo"
+        );
+        assert_eq!(
+            remote_browse_url("ssh://git@altssh.gitlab.com:443/group/repo.git").unwrap(),
+            "https://gitlab.com/group/repo"
         );
         assert_eq!(
             remote_browse_url("git://github.com/owner/repo.git").unwrap(),
