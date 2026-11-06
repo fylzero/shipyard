@@ -235,6 +235,15 @@ mod tests {
 
     static NEXT: AtomicU64 = AtomicU64::new(0);
 
+    // Tests share the global logger, so ones that re-init or pause it must not overlap.
+    static LOGGER_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    fn lock_logger() -> std::sync::MutexGuard<'static, ()> {
+        LOGGER_TEST_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn temp_log() -> PathBuf {
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
         let dir =
@@ -245,6 +254,7 @@ mod tests {
 
     #[test]
     fn persists_and_clears_command_history() {
+        let _guard = lock_logger();
         let path = temp_log();
         init(path.clone(), None);
         set_paused(false).unwrap();
@@ -291,6 +301,7 @@ mod tests {
 
     #[test]
     fn pause_skips_new_command_history() {
+        let _guard = lock_logger();
         let path = temp_log();
         init(path, None);
         set_paused(true).unwrap();
