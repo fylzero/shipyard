@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.20.0",
+    date: "November 13, 2026",
+    notes: [
+      "Shipyard has a light theme. Choose System, Light, or Dark under Theme in the new Appearance settings. System, the default, follows your computer's light or dark appearance and switches with it. The window's title bar, the terminal, the commit graph, and the settings editors follow the theme too.",
+      "The diff and terminal font and size settings moved from General to Appearance.",
+    ],
+  },
+  {
     version: "1.19.1",
     date: "November 6, 2026",
     notes: [

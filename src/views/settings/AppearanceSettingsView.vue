@@ -1,0 +1,323 @@
+<script setup lang="ts">
+import { ref, watch } from "vue";
+import { useApp } from "../../composables/useApp";
+import {
+  CUSTOM_FONT_ID,
+  DEFAULT_DIFF_FONT_SIZE,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  FONT_OPTIONS,
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  formatFontSize,
+  isPresetFont,
+} from "../../fonts";
+import { THEME_OPTIONS } from "../../theme";
+import type { ThemePreference } from "../../types";
+
+const {
+  theme,
+  saveTheme,
+  diffFontFamily,
+  saveDiffFontFamily,
+  diffFontSize,
+  setDiffFontSize,
+  saveDiffFontSize,
+  terminalFontFamily,
+  saveTerminalFontFamily,
+  terminalFontSize,
+  setTerminalFontSize,
+  saveTerminalFontSize,
+  showToast,
+} = useApp();
+
+const diffUsingCustom = ref(!isPresetFont(diffFontFamily.value));
+const terminalUsingCustom = ref(!isPresetFont(terminalFontFamily.value));
+const diffCustomFont = ref(diffUsingCustom.value ? diffFontFamily.value : "");
+const terminalCustomFont = ref(terminalUsingCustom.value ? terminalFontFamily.value : "");
+
+watch(diffFontFamily, (value) => {
+  if (isPresetFont(value)) {
+    diffUsingCustom.value = false;
+    return;
+  }
+  diffUsingCustom.value = true;
+  diffCustomFont.value = value;
+});
+
+watch(terminalFontFamily, (value) => {
+  if (isPresetFont(value)) {
+    terminalUsingCustom.value = false;
+    return;
+  }
+  terminalUsingCustom.value = true;
+  terminalCustomFont.value = value;
+});
+
+async function onTheme(next: ThemePreference) {
+  try {
+    await saveTheme(next);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+async function onDiffFont(event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  if (value === CUSTOM_FONT_ID) {
+    diffUsingCustom.value = true;
+    if (diffCustomFont.value.trim()) {
+      try {
+        await saveDiffFontFamily(diffCustomFont.value);
+      } catch (err) {
+        showToast(String(err), "error");
+      }
+    }
+    return;
+  }
+  diffUsingCustom.value = false;
+  try {
+    await saveDiffFontFamily(value);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+async function onDiffCustomFont(event: Event) {
+  const value = (event.target as HTMLInputElement).value;
+  diffCustomFont.value = value;
+  if (!value.trim()) {
+    return;
+  }
+  try {
+    await saveDiffFontFamily(value);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+function onDiffSizeInput(event: Event) {
+  setDiffFontSize(Number((event.target as HTMLInputElement).value));
+}
+
+async function onDiffSizeChange(event: Event) {
+  try {
+    await saveDiffFontSize(Number((event.target as HTMLInputElement).value));
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+async function resetDiffFontSize() {
+  try {
+    await saveDiffFontSize(DEFAULT_DIFF_FONT_SIZE);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+async function onTerminalFont(event: Event) {
+  const value = (event.target as HTMLSelectElement).value;
+  if (value === CUSTOM_FONT_ID) {
+    terminalUsingCustom.value = true;
+    if (terminalCustomFont.value.trim()) {
+      try {
+        await saveTerminalFontFamily(terminalCustomFont.value);
+      } catch (err) {
+        showToast(String(err), "error");
+      }
+    }
+    return;
+  }
+  terminalUsingCustom.value = false;
+  try {
+    await saveTerminalFontFamily(value);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+async function onTerminalCustomFont(event: Event) {
+  const value = (event.target as HTMLInputElement).value;
+  terminalCustomFont.value = value;
+  if (!value.trim()) {
+    return;
+  }
+  try {
+    await saveTerminalFontFamily(value);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+function onTerminalSizeInput(event: Event) {
+  setTerminalFontSize(Number((event.target as HTMLInputElement).value));
+}
+
+async function onTerminalSizeChange(event: Event) {
+  try {
+    await saveTerminalFontSize(Number((event.target as HTMLInputElement).value));
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+async function resetTerminalFontSize() {
+  try {
+    await saveTerminalFontSize(DEFAULT_TERMINAL_FONT_SIZE);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+</script>
+
+<template>
+  <div class="settings-pane settings-form-page">
+    <div class="settings-inner">
+      <div class="settings-header">
+        <div>
+          <div class="brand">Appearance</div>
+          <p class="muted tiny">Theme, fonts, and text sizes.</p>
+        </div>
+      </div>
+
+      <section class="settings-card">
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Theme</h3>
+            <p class="muted tiny">System follows your light or dark appearance setting.</p>
+          </div>
+          <div class="segmented" role="group" aria-label="Theme">
+            <button
+              v-for="option in THEME_OPTIONS"
+              :key="option.id"
+              type="button"
+              :class="{ active: theme === option.id }"
+              :aria-pressed="theme === option.id"
+              @click="onTheme(option.id)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+        <div class="settings-row" :class="{ 'settings-row-stacked': diffUsingCustom }">
+          <div class="settings-row-copy">
+            <h3>Diff font</h3>
+            <p class="muted tiny">Typeface used for file diffs in Changes and File History.</p>
+          </div>
+          <div class="settings-control settings-font">
+            <label>
+              <span class="visually-hidden">Diff font</span>
+              <select :value="diffUsingCustom ? CUSTOM_FONT_ID : diffFontFamily" @change="onDiffFont">
+                <option v-for="option in FONT_OPTIONS" :key="option.id" :value="option.id">
+                  {{ option.label }}
+                </option>
+                <option :value="CUSTOM_FONT_ID">Custom…</option>
+              </select>
+            </label>
+            <label v-if="diffUsingCustom">
+              <span class="visually-hidden">Custom diff font</span>
+              <input
+                type="text"
+                :value="diffCustomFont"
+                placeholder="Font family name"
+                autocapitalize="off"
+                autocorrect="off"
+                autocomplete="off"
+                spellcheck="false"
+                @change="onDiffCustomFont"
+              />
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Diff size</h3>
+            <p class="muted tiny">Size of the file diff text.</p>
+          </div>
+          <div class="settings-control settings-slider">
+            <label class="settings-slider-input">
+              <span class="visually-hidden">Diff font size</span>
+              <input
+                type="range"
+                :min="FONT_SIZE_MIN"
+                :max="FONT_SIZE_MAX"
+                step="0.5"
+                :value="diffFontSize"
+                @input="onDiffSizeInput"
+                @change="onDiffSizeChange"
+              />
+            </label>
+            <span class="settings-slider-value">{{ formatFontSize(diffFontSize) }}</span>
+            <button
+              class="ghost tiny"
+              type="button"
+              :disabled="diffFontSize === DEFAULT_DIFF_FONT_SIZE"
+              @click="resetDiffFontSize"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        <div class="settings-row" :class="{ 'settings-row-stacked': terminalUsingCustom }">
+          <div class="settings-row-copy">
+            <h3>Terminal font</h3>
+            <p class="muted tiny">Typeface used in the repository terminal.</p>
+          </div>
+          <div class="settings-control settings-font">
+            <label>
+              <span class="visually-hidden">Terminal font</span>
+              <select :value="terminalUsingCustom ? CUSTOM_FONT_ID : terminalFontFamily" @change="onTerminalFont">
+                <option v-for="option in FONT_OPTIONS" :key="option.id" :value="option.id">
+                  {{ option.label }}
+                </option>
+                <option :value="CUSTOM_FONT_ID">Custom…</option>
+              </select>
+            </label>
+            <label v-if="terminalUsingCustom">
+              <span class="visually-hidden">Custom terminal font</span>
+              <input
+                type="text"
+                :value="terminalCustomFont"
+                placeholder="Font family name"
+                autocapitalize="off"
+                autocorrect="off"
+                autocomplete="off"
+                spellcheck="false"
+                @change="onTerminalCustomFont"
+              />
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Terminal size</h3>
+            <p class="muted tiny">Size of the repository terminal text.</p>
+          </div>
+          <div class="settings-control settings-slider">
+            <label class="settings-slider-input">
+              <span class="visually-hidden">Terminal font size</span>
+              <input
+                type="range"
+                :min="FONT_SIZE_MIN"
+                :max="FONT_SIZE_MAX"
+                step="0.5"
+                :value="terminalFontSize"
+                @input="onTerminalSizeInput"
+                @change="onTerminalSizeChange"
+              />
+            </label>
+            <span class="settings-slider-value">{{ formatFontSize(terminalFontSize) }}</span>
+            <button
+              class="ghost tiny"
+              type="button"
+              :disabled="terminalFontSize === DEFAULT_TERMINAL_FONT_SIZE"
+              @click="resetTerminalFontSize"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</template>

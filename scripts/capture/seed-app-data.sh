@@ -97,6 +97,7 @@ cat > "$APP_DATA_DIR/settings.json" << EOF
     "demo-group-2",
     "docs-site"
   ],
+  "theme": "dark",
   "refreshIntervalSeconds": 300,
   "filesPaneWidth": 320,
   "terminalPaneHeight": 280,

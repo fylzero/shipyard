@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { rangeIds, toggleId } from "../selection";
+import { resolvedTheme } from "../theme";
 import type { CommitNode } from "../types";
 import {
   GRAPH_COLORS,
@@ -113,7 +114,8 @@ type DatePopover = {
 const datePopover = ref<DatePopover | null>(null);
 
 function color(column: number) {
-  return GRAPH_COLORS[column % GRAPH_COLORS.length];
+  const colors = GRAPH_COLORS[resolvedTheme.value];
+  return colors[column % colors.length];
 }
 
 function linkPath(from: number, y1: number, to: number, y2: number) {

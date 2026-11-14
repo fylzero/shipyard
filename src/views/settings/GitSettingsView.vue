@@ -7,6 +7,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import * as api from "../../api";
 import { useApp } from "../../composables/useApp";
 import { SETTINGS_TAB_ID, useTabs } from "../../composables/useTabs";
+import { editorChrome } from "../../theme";
 import type { GitConfig } from "../../types";
 
 const { showToast } = useApp();
@@ -50,10 +51,11 @@ const editorTheme = EditorView.theme(
     "&": {
       height: "100%",
       color: "var(--text)",
-      backgroundColor: "#0d1016",
+      backgroundColor: "var(--bg-input)",
       fontFamily: "var(--font-code)",
       fontSize: "12px",
     },
+    ...editorChrome,
     "&.cm-focused": {
       outline: "none",
     },
@@ -66,18 +68,15 @@ const editorTheme = EditorView.theme(
       padding: "0.45rem 0.8rem",
     },
     ".cm-gutters": {
-      backgroundColor: "#0d1016",
+      backgroundColor: "var(--bg-input)",
       color: "var(--muted)",
       borderRight: "1px solid var(--border)",
     },
     ".cm-activeLine": {
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      backgroundColor: "rgb(var(--tint) / 0.03)",
     },
     ".cm-activeLineGutter": {
       backgroundColor: "transparent",
-    },
-    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
-      backgroundColor: "#2a3344",
     },
     ".cm-cursor": {
       borderLeftColor: "var(--text)",
@@ -87,10 +86,10 @@ const editorTheme = EditorView.theme(
 );
 
 const editorHighlight = HighlightStyle.define([
-  { tag: t.squareBracket, color: "#7ee0c7" },
-  { tag: t.atom, color: "#7ee0c7" },
-  { tag: t.propertyName, color: "#9ec1ff" },
-  { tag: t.string, color: "#3dd68c" },
+  { tag: t.squareBracket, color: "var(--syntax-type)" },
+  { tag: t.atom, color: "var(--syntax-type)" },
+  { tag: t.propertyName, color: "var(--syntax-constant)" },
+  { tag: t.string, color: "var(--syntax-string)" },
   { tag: t.comment, color: "var(--muted)" },
   { tag: t.punctuation, color: "var(--muted)" },
   { tag: t.invalid, color: "var(--bad)" },

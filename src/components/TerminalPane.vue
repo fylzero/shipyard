@@ -2,11 +2,62 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type ITheme } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import * as api from "../api";
 import { useApp } from "../composables/useApp";
 import { fontFaceName, resolveFontStack } from "../fonts";
+import { resolvedTheme } from "../theme";
+import type { ResolvedTheme } from "../types";
+
+const TERMINAL_THEMES: Record<ResolvedTheme, ITheme> = {
+  dark: {
+    background: "#0d1016",
+    foreground: "#e8edf5",
+    cursor: "#118777",
+    cursorAccent: "#0d1016",
+    selectionBackground: "#2a3344",
+    black: "#12151b",
+    red: "#f07178",
+    green: "#3dd68c",
+    yellow: "#e6c07b",
+    blue: "#7aa2f7",
+    magenta: "#c678dd",
+    cyan: "#56b6c2",
+    white: "#e8edf5",
+    brightBlack: "#8b95a8",
+    brightRed: "#f07178",
+    brightGreen: "#3dd68c",
+    brightYellow: "#e6c07b",
+    brightBlue: "#7aa2f7",
+    brightMagenta: "#c678dd",
+    brightCyan: "#56b6c2",
+    brightWhite: "#ffffff",
+  },
+  light: {
+    background: "#ffffff",
+    foreground: "#1c2330",
+    cursor: "#118777",
+    cursorAccent: "#ffffff",
+    selectionBackground: "#cfe0f7",
+    black: "#1c2330",
+    red: "#c9303a",
+    green: "#15803d",
+    yellow: "#a16207",
+    blue: "#2c5fcf",
+    magenta: "#9333ea",
+    cyan: "#0e7490",
+    white: "#6e7781",
+    brightBlack: "#5f6b7d",
+    brightRed: "#d1434b",
+    brightGreen: "#178a52",
+    brightYellow: "#b07a12",
+    brightBlue: "#2f6fdb",
+    brightMagenta: "#a855f7",
+    brightCyan: "#0891b2",
+    brightWhite: "#8c959f",
+  },
+};
 
 const props = defineProps<{
   cwd: string;
@@ -127,29 +178,7 @@ onMounted(async () => {
     fontWeightBold: "700",
     lineHeight: 1.35,
     scrollback: 5000,
-    theme: {
-      background: "#0d1016",
-      foreground: "#e8edf5",
-      cursor: "#118777",
-      cursorAccent: "#0d1016",
-      selectionBackground: "#2a3344",
-      black: "#12151b",
-      red: "#f07178",
-      green: "#3dd68c",
-      yellow: "#e6c07b",
-      blue: "#7aa2f7",
-      magenta: "#c678dd",
-      cyan: "#56b6c2",
-      white: "#e8edf5",
-      brightBlack: "#8b95a8",
-      brightRed: "#f07178",
-      brightGreen: "#3dd68c",
-      brightYellow: "#e6c07b",
-      brightBlue: "#7aa2f7",
-      brightMagenta: "#c678dd",
-      brightCyan: "#56b6c2",
-      brightWhite: "#ffffff",
-    },
+    theme: TERMINAL_THEMES[resolvedTheme.value],
     macOptionIsMeta: true,
   });
   fit = new FitAddon();
@@ -225,6 +254,12 @@ watch([terminalFontFamily, terminalFontSize], async () => {
   await preloadTerminalFont();
   applyTerminalFont();
   syncSize();
+});
+
+watch(resolvedTheme, (theme) => {
+  if (term) {
+    term.options.theme = TERMINAL_THEMES[theme];
+  }
 });
 </script>
 

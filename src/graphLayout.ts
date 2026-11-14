@@ -1,20 +1,14 @@
-import type { CommitNode } from "./types";
+import type { CommitNode, ResolvedTheme } from "./types";
 
 export const GRAPH_ROW_HEIGHT = 28;
 export const GRAPH_COL_WIDTH = 14;
 export const GRAPH_MIN_COL_WIDTH = 6;
 export const GRAPH_PAD_X = 10;
 export const GRAPH_MAX_WIDTH = 156;
-export const GRAPH_COLORS = [
-  "#5b8def",
-  "#3dd68c",
-  "#e6c07b",
-  "#c678dd",
-  "#56b6c2",
-  "#f07178",
-  "#abb2bf",
-  "#d19a66",
-];
+export const GRAPH_COLORS: Record<ResolvedTheme, string[]> = {
+  dark: ["#5b8def", "#3dd68c", "#e6c07b", "#c678dd", "#56b6c2", "#f07178", "#abb2bf", "#d19a66"],
+  light: ["#2f6fdb", "#178a52", "#b07a12", "#9333ea", "#0e7490", "#d1434b", "#6b7280", "#c2621d"],
+};
 
 export interface GraphPipe {
   column: number;

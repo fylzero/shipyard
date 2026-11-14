@@ -23,6 +23,7 @@ import type {
   RepoStatus,
   StashEntry,
   TagEntry,
+  ThemePreference,
   WindowState,
   RepoFile,
   WorkingTreeFile,
@@ -152,6 +153,10 @@ export function updateEditor(editor: string) {
 
 export function updateNotifications(mode: NotificationMode) {
   return invoke<NotificationMode>("update_notifications", { mode });
+}
+
+export function updateTheme(theme: ThemePreference) {
+  return invoke<ThemePreference>("update_theme", { theme });
 }
 
 export function updateRefreshActiveHours(hours: RefreshActiveHours) {

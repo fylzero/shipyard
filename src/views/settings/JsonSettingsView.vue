@@ -9,12 +9,14 @@ import { confirm, open as openFile, save as saveFile } from "@tauri-apps/plugin-
 import * as api from "../../api";
 import { useApp } from "../../composables/useApp";
 import { SETTINGS_TAB_ID, useTabs } from "../../composables/useTabs";
+import { editorChrome } from "../../theme";
 import type { AppData } from "../../types";
 
 const {
   groups,
   standaloneRepos,
   dashboardOrder,
+  theme,
   refreshIntervalSeconds,
   refreshActiveHours,
   diffMode,
@@ -50,10 +52,11 @@ const editorTheme = EditorView.theme(
     "&": {
       height: "100%",
       color: "var(--text)",
-      backgroundColor: "#0d1016",
+      backgroundColor: "var(--bg-input)",
       fontFamily: "var(--font-code)",
       fontSize: "12px",
     },
+    ...editorChrome,
     "&.cm-focused": {
       outline: "none",
     },
@@ -66,18 +69,15 @@ const editorTheme = EditorView.theme(
       padding: "0.45rem 0.8rem",
     },
     ".cm-gutters": {
-      backgroundColor: "#0d1016",
+      backgroundColor: "var(--bg-input)",
       color: "var(--muted)",
       borderRight: "1px solid var(--border)",
     },
     ".cm-activeLine": {
-      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      backgroundColor: "rgb(var(--tint) / 0.03)",
     },
     ".cm-activeLineGutter": {
       backgroundColor: "transparent",
-    },
-    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
-      backgroundColor: "#2a3344",
     },
     ".cm-cursor": {
       borderLeftColor: "var(--text)",
@@ -87,14 +87,14 @@ const editorTheme = EditorView.theme(
 );
 
 const editorHighlight = HighlightStyle.define([
-  { tag: t.propertyName, color: "#7ee0c7" },
-  { tag: t.string, color: "#3dd68c" },
-  { tag: t.number, color: "#e6c07b" },
-  { tag: t.bool, color: "#9ec1ff" },
+  { tag: t.propertyName, color: "var(--syntax-type)" },
+  { tag: t.string, color: "var(--syntax-string)" },
+  { tag: t.number, color: "var(--syntax-number)" },
+  { tag: t.bool, color: "var(--syntax-constant)" },
   { tag: t.null, color: "var(--muted)" },
   { tag: t.punctuation, color: "var(--muted)" },
-  { tag: t.squareBracket, color: "#d7deea" },
-  { tag: t.brace, color: "#d7deea" },
+  { tag: t.squareBracket, color: "var(--syntax-bracket)" },
+  { tag: t.brace, color: "var(--syntax-bracket)" },
   { tag: t.invalid, color: "var(--bad)" },
 ]);
 
@@ -197,6 +197,7 @@ watch(
     groups,
     standaloneRepos,
     dashboardOrder,
+    theme,
     refreshIntervalSeconds,
     refreshActiveHours,
     diffMode,

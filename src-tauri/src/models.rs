@@ -32,6 +32,18 @@ pub fn sanitize_notifications(value: &str) -> String {
     }
 }
 
+fn default_theme() -> String {
+    "system".into()
+}
+
+pub fn sanitize_theme(value: &str) -> String {
+    match value.trim() {
+        "light" => "light".into(),
+        "dark" => "dark".into(),
+        _ => default_theme(),
+    }
+}
+
 fn default_code_font() -> String {
     "jetbrains".into()
 }
@@ -208,6 +220,9 @@ pub struct AppData {
     /// Group ids and ungrouped repository ids, in dashboard order.
     #[serde(default)]
     pub dashboard_order: Vec<String>,
+    /// Color theme: "system", "light", or "dark".
+    #[serde(default = "default_theme")]
+    pub theme: String,
     #[serde(default = "default_refresh_interval")]
     pub refresh_interval_seconds: u64,
     #[serde(default = "default_files_pane_width")]
@@ -241,6 +256,7 @@ impl Default for AppData {
             groups: Vec::new(),
             repos: Vec::new(),
             dashboard_order: Vec::new(),
+            theme: default_theme(),
             refresh_interval_seconds: default_refresh_interval(),
             files_pane_width: default_files_pane_width(),
             terminal_pane_height: default_terminal_pane_height(),
@@ -309,6 +325,7 @@ mod tests {
     #[test]
     fn serializes_groups_as_camel_case_json() {
         let data = AppData {
+            theme: "system".into(),
             refresh_interval_seconds: 300,
             files_pane_width: 320,
             terminal_pane_height: 280,
@@ -390,6 +407,15 @@ mod tests {
         assert_eq!(sanitize_notifications(" off "), "off");
         assert_eq!(sanitize_notifications("background"), "background");
         assert_eq!(sanitize_notifications("loud"), "background");
+    }
+
+    #[test]
+    fn sanitizes_theme() {
+        assert_eq!(sanitize_theme(" light "), "light");
+        assert_eq!(sanitize_theme("dark"), "dark");
+        assert_eq!(sanitize_theme("sepia"), "system");
+        let parsed: AppData = serde_json::from_str(r#"{"groups":[]}"#).unwrap();
+        assert_eq!(parsed.theme, "system");
     }
 
     #[test]

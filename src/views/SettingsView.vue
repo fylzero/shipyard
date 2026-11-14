@@ -5,6 +5,7 @@ import {
   type SettingsSection,
   useTabs,
 } from "../composables/useTabs";
+import AppearanceSettingsView from "./settings/AppearanceSettingsView.vue";
 import GeneralSettingsView from "./settings/GeneralSettingsView.vue";
 import ScheduleSettingsView from "./settings/ScheduleSettingsView.vue";
 import WindowSettingsView from "./settings/WindowSettingsView.vue";
@@ -33,6 +34,7 @@ const { settingsSection, openSettings } = useTabs();
 
 const preferenceSections: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
+  { id: "appearance", label: "Appearance" },
   { id: "git", label: "Git" },
   { id: "schedule", label: "Schedule" },
   { id: "window", label: "Window" },
@@ -61,6 +63,12 @@ const current = computed(() =>
           <path d="M4 12h10" />
           <path d="M4 18h13" />
         </svg>
+        <svg v-else-if="item.id === 'appearance'" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19 10 5l6 14" />
+          <path d="M6.5 14h7" />
+          <path d="M17 19v-6" />
+          <path d="M20 19v-6" />
+        </svg>
         <svg v-else-if="item.id === 'git'" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="6" cy="5" r="2.25" />
           <circle cx="6" cy="19" r="2.25" />
@@ -85,6 +93,7 @@ const current = computed(() =>
     </nav>
     <div class="settings-content" :class="{ fill: current === 'json' || current === 'git' }">
       <GeneralSettingsView v-if="current === 'general'" />
+      <AppearanceSettingsView v-if="current === 'appearance'" />
       <GitSettingsView v-if="current === 'git'" />
       <ScheduleSettingsView v-if="current === 'schedule'" />
       <WindowSettingsView v-if="current === 'window'" />

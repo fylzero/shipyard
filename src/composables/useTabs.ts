@@ -8,7 +8,14 @@ export const HISTORY_TAB_ID = "history";
 export const SETTINGS_TAB_ID = "settings";
 export const CHANGELOG_TAB_ID = "changelog";
 
-export const SETTINGS_SECTIONS = ["general", "git", "schedule", "window", "json"] as const;
+export const SETTINGS_SECTIONS = [
+  "general",
+  "appearance",
+  "git",
+  "schedule",
+  "window",
+  "json",
+] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 type UtilityPanel = "settings" | "history" | "changelog";

@@ -7,10 +7,10 @@ use crate::desktop;
 use crate::git;
 use crate::models::{
     sanitize_editor, sanitize_font_family, sanitize_font_size, sanitize_notifications,
-    sanitize_refresh_active_hours, AppData, BranchOverview, BranchTracking, CommitFile, CommitNode,
-    CommitSearch, DeleteMergedResult, FileBlame, GitConfig, LastCommit, RefreshActiveHours,
-    RemoteEntry, RemoteOverview, RemoteTagOverview, RepoActionResult, RepoEntry, RepoFile,
-    RepoGroup, RepoStatus, StashEntry, TagEntry, WorkingTreeFile,
+    sanitize_refresh_active_hours, sanitize_theme, AppData, BranchOverview, BranchTracking,
+    CommitFile, CommitNode, CommitSearch, DeleteMergedResult, FileBlame, GitConfig, LastCommit,
+    RefreshActiveHours, RemoteEntry, RemoteOverview, RemoteTagOverview, RepoActionResult,
+    RepoEntry, RepoFile, RepoGroup, RepoStatus, StashEntry, TagEntry, WorkingTreeFile,
 };
 use crate::persist;
 
@@ -384,6 +384,19 @@ pub fn update_notifications(
 }
 
 #[tauri::command]
+pub fn update_theme(
+    app: AppHandle,
+    state: State<AppState>,
+    theme: String,
+) -> Result<String, String> {
+    let theme = sanitize_theme(&theme);
+    let mut data = state.data.lock().map_err(|err| err.to_string())?;
+    data.theme = theme.clone();
+    persist_data(&app, &data)?;
+    Ok(theme)
+}
+
+#[tauri::command]
 pub fn update_refresh_active_hours(
     app: AppHandle,
     state: State<AppState>,
@@ -431,6 +444,7 @@ fn sanitize_app_data(mut data: AppData) -> Result<AppData, String> {
     data.terminal_font_size = sanitize_font_size(data.terminal_font_size, 14.0);
     data.editor = sanitize_editor(&data.editor);
     data.notifications = sanitize_notifications(&data.notifications);
+    data.theme = sanitize_theme(&data.theme);
     data.refresh_active_hours = sanitize_refresh_active_hours(data.refresh_active_hours);
     if let Some(window) = &mut data.window {
         window.width = window.width.max(crate::models::MIN_WINDOW_WIDTH);

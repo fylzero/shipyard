@@ -17,6 +17,8 @@ export interface RepoGroup {
 
 export type DiffMode = "inline" | "split";
 export type NotificationMode = "background" | "always" | "off";
+export type ThemePreference = "system" | "light" | "dark";
+export type ResolvedTheme = Exclude<ThemePreference, "system">;
 
 export const EDITOR_OPTIONS: { id: string; label: string; short?: string }[] = [
   { id: "system", label: "System default" },
@@ -55,6 +57,7 @@ export interface AppData {
   groups: RepoGroup[];
   repos?: RepoEntry[];
   dashboardOrder?: string[];
+  theme?: ThemePreference;
   refreshIntervalSeconds?: number;
   filesPaneWidth?: number;
   terminalPaneHeight?: number;

@@ -12,6 +12,7 @@ import type {
   RepoFilesChanged,
   RepoGroup,
   RepoStatus,
+  ThemePreference,
   WindowState,
 } from "../types";
 import { STANDALONE_GROUP_ID } from "../types";
@@ -38,6 +39,7 @@ import {
   windowFocused,
 } from "../notifications";
 import { baseName } from "../platform";
+import { sanitizeTheme, themePreference } from "../theme";
 
 const groups = ref<RepoGroup[]>([]);
 const standaloneRepos = ref<RepoEntry[]>([]);
@@ -162,6 +164,7 @@ export function useApp() {
     groups.value = data.groups;
     standaloneRepos.value = data.repos ?? [];
     dashboardOrder.value = data.dashboardOrder ?? [];
+    themePreference.value = sanitizeTheme(data.theme);
     refreshIntervalSeconds.value = data.refreshIntervalSeconds ?? 300;
     refreshActiveHours.value = normalizeRefreshActiveHours(data.refreshActiveHours);
     filesPaneWidth.value = clampFilesPaneWidth(data.filesPaneWidth ?? 320);
@@ -716,6 +719,10 @@ export function useApp() {
 
   async function saveEditor(next: string) {
     editor.value = await api.updateEditor(next);
+  }
+
+  async function saveTheme(next: ThemePreference) {
+    themePreference.value = sanitizeTheme(await api.updateTheme(next));
   }
 
   async function replaceSettings(data: AppData) {
@@ -1537,6 +1544,8 @@ export function useApp() {
     saveEditor,
     notifications,
     saveNotifications,
+    theme: themePreference,
+    saveTheme,
     windowState,
     saveWindowState,
     replaceSettings,
