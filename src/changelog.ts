@@ -11,6 +11,7 @@ export const CHANGELOG: ChangelogRelease[] = [
     notes: [
       "Shipyard has a light theme. Choose System, Light, or Dark under Theme in the new Appearance settings. System, the default, follows your computer's light or dark appearance and switches with it. The window's title bar, the terminal, the commit graph, and the settings editors follow the theme too.",
       "The diff and terminal font and size settings moved from General to Appearance.",
+      "The Update available dialog just shows the new version and the one you have, without the list of downloads for every platform.",
     ],
   },
   {

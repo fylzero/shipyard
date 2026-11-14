@@ -78,7 +78,6 @@ const {
   statusText,
   currentVersion,
   availableVersion,
-  notes,
   busy,
   promptOpen,
   checkForUpdates,
@@ -288,7 +287,6 @@ watch(statuses, () => {
       <p>
         Shipyard {{ availableVersion }} is available. You have {{ currentVersion }}.
       </p>
-      <p v-if="notes" class="muted tiny settings-update-notes">{{ notes }}</p>
       <p
         v-if="status === 'downloading' || status === 'installing' || status === 'error'"
         class="muted tiny"

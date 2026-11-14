@@ -15,7 +15,6 @@ export type UpdaterStatus =
 const status = ref<UpdaterStatus>("idle");
 const currentVersion = ref("");
 const availableVersion = ref("");
-const notes = ref("");
 const errorMessage = ref("");
 const downloaded = ref(0);
 const contentLength = ref(0);
@@ -93,7 +92,6 @@ export function useUpdater() {
       const update = await check();
       if (!update) {
         availableVersion.value = "";
-        notes.value = "";
         promptOpen.value = false;
         status.value = "up-to-date";
         return null;
@@ -101,7 +99,6 @@ export function useUpdater() {
       pendingUpdate = update;
       currentVersion.value = update.currentVersion || currentVersion.value;
       availableVersion.value = update.version;
-      notes.value = update.body?.trim() ?? "";
       status.value = "available";
       if (options?.prompt !== false && dismissedVersion !== update.version) {
         promptOpen.value = true;
@@ -110,7 +107,6 @@ export function useUpdater() {
     } catch (err) {
       pendingUpdate = null;
       availableVersion.value = "";
-      notes.value = "";
       promptOpen.value = false;
       if (options?.silent) {
         status.value = "idle";
@@ -166,7 +162,6 @@ export function useUpdater() {
     statusText,
     currentVersion,
     availableVersion,
-    notes,
     errorMessage,
     progressPercent,
     promptOpen,
