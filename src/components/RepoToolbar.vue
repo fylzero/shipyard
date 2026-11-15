@@ -6,6 +6,7 @@ import BranchPicker from "./BranchPicker.vue";
 import SplitAction from "./SplitAction.vue";
 import { useApp } from "../composables/useApp";
 import { useOverflowMenu } from "../composables/useOverflowMenu";
+import { pinnedBranches } from "../pinnedBranches";
 import type { BranchTracking } from "../types";
 
 const props = defineProps<{
@@ -215,6 +216,7 @@ async function toggleBranches() {
             :branches="branches"
             :branch-tracking="branchTracking"
             :selected="branch"
+            :pinned="pinnedBranches(path)"
             @select="selectBranch"
             @close="close"
             @branch-menu="openBranchActions"

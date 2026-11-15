@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { pinnedFirst } from "../pinnedBranches";
 import type { BranchTracking } from "../types";
 
 const props = defineProps<{
@@ -9,6 +10,7 @@ const props = defineProps<{
   current?: string;
   initialQuery?: string;
   emptyText?: string;
+  pinned?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -25,11 +27,13 @@ const moved = ref(Boolean(props.initialQuery));
 
 const items = computed(() => {
   const tracking = new Map((props.branchTracking ?? []).map((item) => [item.name, item]));
-  return props.branches.map((name) => {
+  const pinned = new Set(props.pinned ?? []);
+  return pinnedFirst(props.branches, props.pinned ?? [], (name) => name).map((name) => {
     const item = tracking.get(name);
     const remote = item?.upstream?.trim() || "";
     return {
       name,
+      pinned: pinned.has(name),
       localOnly: item?.localOnly ?? false,
       ahead: item?.ahead ?? 0,
       behind: item?.behind ?? 0,
@@ -222,6 +226,12 @@ defineExpose({
         @contextmenu="onBranchContextMenu($event, index)"
       >
         <span class="branch-menu-name">{{ item.name }}</span>
+        <svg v-if="item.pinned" class="branch-menu-pin" viewBox="0 0 24 24" aria-label="Pinned">
+          <path d="M12 17v5" />
+          <path
+            d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"
+          />
+        </svg>
         <span v-if="current && item.name === current" class="branch-pill">Current</span>
         <span v-if="item.localOnly" class="branch-pill" title="Local only — no remote counterpart">
           Local

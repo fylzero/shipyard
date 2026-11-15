@@ -7,11 +7,20 @@ export interface ChangelogRelease {
 export const CHANGELOG: ChangelogRelease[] = [
   {
     version: "1.20.0",
-    date: "November 13, 2026",
+    date: "November 14, 2026",
     notes: [
       "Shipyard has a light theme. Choose System, Light, or Dark under Theme in the new Appearance settings. System, the default, follows your computer's light or dark appearance and switches with it. The window's title bar, the terminal, the commit graph, and the settings editors follow the theme too.",
       "The diff and terminal font and size settings moved from General to Appearance.",
       "The Update available dialog just shows the new version and the one you have, without the list of downloads for every platform.",
+      "Branches that share a prefix, like task/ or bug/, are grouped under a collapsible row in the Branches tab. Click the row to show or hide them. Prefixes nest, so feature/auth/login sits under feature/ and then auth/. A prefix with only one branch stays a plain row. Each repository remembers which groups you opened.",
+      "A group shows how many branches it holds, and how many are already merged.",
+      "Groups also appear in the Remote view. While you type in the filter field, the list goes flat so no match hides in a closed group.",
+      "You can pin branches to the top of the Branches tab. Hover a branch and click the pin, or right-click it and choose Pin to top. develop, main, and master are pinned by default, and unpinning one stays unpinned.",
+      "Pinned branches come first in the branch menu in the toolbar and in the branch pickers in the Merge and New branch dialogs. In the Remote view, a remote branch with a pinned name moves to the top next to the default branch.",
+      "Collapsing a group removes its branches from your selection, so Delete selected only deletes branches you can see.",
+      "In the Checkout dialog on the Repositories screen, the branch field is ready to type in as soon as the dialog opens. Typing in it picks Specify for you, and Enter checks out. The fallbacks are summarized on one line, with Edit to change them.",
+      "In the Pull dialog on the Repositories screen, the Specify field is always shown. Typing in it picks Specify.",
+      "When you open a commit, click its short SHA above the file list to copy the full SHA. Right-click the commit's title to open the same menu as in the graph.",
     ],
   },
   {

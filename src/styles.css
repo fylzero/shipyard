@@ -3265,6 +3265,18 @@ body.is-resizing-y * {
   flex-shrink: 0;
 }
 
+.branch-menu-pin {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+  color: var(--muted);
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .branch-menu-dropdown .overflow-menu-item.active,
 .branch-picker .overflow-menu-item.active {
   background: var(--bg-active);
@@ -3465,6 +3477,74 @@ input[type="text"].branch-search-query {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+}
+
+.branch-row.section-end {
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 var(--border);
+}
+
+button.branch-folder-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.branch-folder-row:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.branch-folder-row .branch-row-name {
+  color: var(--muted);
+}
+
+.branch-folder-row .file-tree-twist {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-basis: 0.85rem;
+}
+
+.branch-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0.15rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.branch-pin svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.branch-pin.pinned svg {
+  fill: currentColor;
+}
+
+.branch-row:hover .branch-pin,
+.branch-pin.pinned,
+.branch-pin:focus-visible {
+  opacity: 1;
+}
+
+button.branch-pin:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text);
 }
 
 .branch-row .action-progress {

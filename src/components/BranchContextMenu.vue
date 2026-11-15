@@ -14,6 +14,7 @@ const props = withDefaults(
     busy?: boolean;
     copyLabel?: string;
     copiedMessage?: string;
+    pinned?: boolean | null;
   }>(),
   {
     current: "",
@@ -23,6 +24,7 @@ const props = withDefaults(
     busy: false,
     copyLabel: "Copy branch name",
     copiedMessage: "Copied branch name",
+    pinned: null,
   },
 );
 
@@ -30,6 +32,7 @@ const emit = defineEmits<{
   pull: [];
   mergeIntoCurrent: [];
   createPullRequest: [];
+  togglePin: [];
   close: [];
 }>();
 
@@ -136,6 +139,11 @@ async function copyName() {
   }
 }
 
+function togglePin() {
+  emit("togglePin");
+  emit("close");
+}
+
 onMounted(() => {
   document.addEventListener("pointerdown", onDocumentPointerDown);
   window.addEventListener("keydown", onWindowKeydown, true);
@@ -203,6 +211,15 @@ watch(
         Create pull request…
       </button>
       <div v-if="showPull || showMerge || showPullRequest" class="context-menu-sep" />
+      <button
+        v-if="pinned !== null"
+        class="context-menu-item"
+        type="button"
+        role="menuitem"
+        @click="togglePin"
+      >
+        {{ pinned ? "Unpin branch" : "Pin to top" }}
+      </button>
       <button class="context-menu-item" type="button" role="menuitem" @click="copyName">
         {{ copyLabel }}
       </button>

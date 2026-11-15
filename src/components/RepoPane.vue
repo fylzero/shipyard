@@ -46,6 +46,7 @@ import type {
 } from "../types";
 import { STANDALONE_GROUP_ID } from "../types";
 import { formatCommitDate } from "../graphLayout";
+import { pinnedBranches } from "../pinnedBranches";
 import { baseName } from "../platform";
 import {
   abortLabel,
@@ -358,6 +359,7 @@ const conflictCopy = computed(() => {
 });
 
 const current = computed(() => findRepo(props.repoId));
+const pinnedNames = computed(() => (current.value ? pinnedBranches(current.value.repo.path) : []));
 const {
   query: commitQuery,
   searching: commitSearching,
@@ -3345,6 +3347,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
           :overview="overview"
           :busy="actionBusy"
           :query="branchQuery"
+          :repo-path="current.repo.path"
           @checkout="checkoutListedBranch"
           @merge="openMergeBranch"
           @rename="openRenameBranch"
@@ -3361,6 +3364,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
           :loading="remoteLoading"
           :fetching="remoteFetching"
           :query="branchQuery"
+          :repo-path="current.repo.path"
           @select="selectRemote"
           @fetch="fetchSelectedRemote()"
           @add="openAddRemote"
@@ -3796,6 +3800,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         :branches="baseBranchOptions"
         :branch-tracking="branchTracking"
         :current="checkedOutBranch"
+        :pinned="pinnedNames"
       />
     </div>
     <p v-if="newBranchStartShort" class="muted tiny">Starts at {{ newBranchStartShort }}.</p>
@@ -3927,6 +3932,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         :branches="branches"
         :branch-tracking="branchTracking"
         :current="checkedOutBranch"
+        :pinned="pinnedNames"
       />
     </div>
     <fieldset class="radio-list">
@@ -3974,6 +3980,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         :branches="localBranchNames"
         :branch-tracking="branchTracking"
         :current="checkedOutBranch"
+        :pinned="pinnedNames"
       />
     </div>
     <div class="modal-label">
@@ -3984,6 +3991,7 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         :branches="mergeTargetOptions"
         :branch-tracking="branchTracking"
         :current="checkedOutBranch"
+        :pinned="pinnedNames"
       />
     </div>
     <p class="muted tiny pull-hint">

@@ -11,6 +11,7 @@ const props = defineProps<{
   current?: string;
   label: string;
   emptyText?: string;
+  pinned?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -162,6 +163,7 @@ onUnmounted(() => {
         :current="current"
         :initial-query="initialQuery"
         :empty-text="emptyText"
+        :pinned="pinned"
         @select="select"
         @close="close()"
         @branch-menu="openBranchActions"
