@@ -608,6 +608,18 @@ button.commit.has-draft::after {
   background: rgb(var(--tint) / 0.03);
 }
 
+.specify-panel.idle {
+  border-left-color: var(--border);
+  background: transparent;
+}
+
+.specify-fallbacks-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .specify-fallbacks {
   display: flex;
   flex-direction: column;

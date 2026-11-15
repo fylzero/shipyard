@@ -112,6 +112,8 @@ const lastFallback = ref<LastFallback>("develop");
 loadFallbacks(props.group.checkoutFallbacks);
 const checkoutSource = ref<"develop" | "specify" | "master" | "main">("develop");
 const checkoutTarget = ref("");
+const checkoutInput = ref<HTMLInputElement | null>(null);
+const editingFallbacks = ref(false);
 const headerColor = ref(props.group.headerColor || DEFAULT_HEADER);
 const modal = ref<"pull" | "checkout" | null>(null);
 const pullSource = ref<"current" | "develop" | "master" | "main" | "specify">("current");
@@ -159,6 +161,8 @@ function fallbackList() {
     lastFallback.value,
   ];
 }
+
+const fallbackSummary = computed(() => fallbackList().join(" → "));
 
 async function persistSettings() {
   extraFallbacks.value = extraFallbacks.value.map((item) => item.trim()).filter(Boolean);
@@ -383,7 +387,21 @@ function openCheckout() {
   checkoutSource.value = "develop";
   checkoutTarget.value = "";
   loadFallbacks(props.group.checkoutFallbacks);
+  editingFallbacks.value = false;
   modal.value = "checkout";
+  void nextTick(() => checkoutInput.value?.focus());
+}
+
+function onPullSpecifyEnter() {
+  if (pullSource.value === "specify") {
+    void confirmPull();
+  }
+}
+
+function onCheckoutSpecifyEnter() {
+  if (checkoutSource.value === "specify") {
+    void checkoutAll();
+  }
 }
 
 function closeModal() {
@@ -724,7 +742,6 @@ function onHeaderClick(event: MouseEvent) {
           Specify
         </label>
         <input
-          v-if="pullSource === 'specify'"
           v-model="specifyBranch"
           type="text"
           placeholder="branch name"
@@ -732,8 +749,9 @@ function onHeaderClick(event: MouseEvent) {
           autocorrect="off"
           autocomplete="off"
           spellcheck="false"
-          autofocus
-          @keydown.enter="confirmPull"
+          @click="pullSource = 'specify'"
+          @input="pullSource = 'specify'"
+          @keydown.enter="onPullSpecifyEnter"
         />
       </fieldset>
       <p class="muted tiny pull-hint">{{ pullHint }}</p>
@@ -756,10 +774,11 @@ function onHeaderClick(event: MouseEvent) {
           <input v-model="checkoutSource" type="radio" value="specify" />
           Specify
         </label>
-        <div v-if="checkoutSource === 'specify'" class="specify-panel">
+        <div class="specify-panel" :class="{ idle: checkoutSource !== 'specify' }">
           <label class="modal-label">
             <span class="muted tiny">Check out this branch</span>
             <input
+              ref="checkoutInput"
               v-model="checkoutTarget"
               type="text"
               placeholder="feature/JIRA-123"
@@ -767,11 +786,19 @@ function onHeaderClick(event: MouseEvent) {
               autocorrect="off"
               autocomplete="off"
               spellcheck="false"
-              autofocus
-              @keydown.enter="checkoutAll"
+              @click="checkoutSource = 'specify'"
+              @input="checkoutSource = 'specify'"
+              @keydown.enter="onCheckoutSpecifyEnter"
             />
           </label>
-          <div class="specify-fallbacks">
+          <div
+            v-if="checkoutSource === 'specify' && !editingFallbacks"
+            class="specify-fallbacks-summary"
+          >
+            <span class="muted tiny">Falls back to {{ fallbackSummary }}</span>
+            <button class="ghost tiny" type="button" @click="editingFallbacks = true">Edit</button>
+          </div>
+          <div v-else-if="checkoutSource === 'specify'" class="specify-fallbacks">
             <p class="muted tiny specify-fallbacks-title">Fallbacks</p>
             <div v-if="extraFallbacks.length" class="fallback-editor">
               <input

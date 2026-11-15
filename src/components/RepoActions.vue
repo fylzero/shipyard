@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import { splitFallbacks, type LastFallback } from "../checkoutFallbacks";
 import { useApp } from "../composables/useApp";
 import type { RepoEntry } from "../types";
@@ -34,8 +34,10 @@ const pullSource = ref<"current" | "develop" | "master" | "main" | "specify">("c
 const specifyBranch = ref("");
 const checkoutSource = ref<"develop" | "specify" | "master" | "main">("develop");
 const checkoutTarget = ref("");
+const checkoutInput = ref<HTMLInputElement | null>(null);
 const extraFallbacks = ref<string[]>([]);
 const lastFallback = ref<LastFallback>("develop");
+const editingFallbacks = ref(false);
 const action = ref<"pull" | "checkout" | "refresh" | null>(null);
 const actionBranch = ref("");
 
@@ -128,6 +130,8 @@ function fallbackList() {
   ];
 }
 
+const fallbackSummary = computed(() => fallbackList().join(" → "));
+
 function openPull() {
   pullSource.value = "current";
   specifyBranch.value = group.value?.pullFromBranch || "develop";
@@ -146,7 +150,21 @@ function openCheckout() {
   checkoutTarget.value = "";
   extraFallbacks.value = extra;
   lastFallback.value = last;
+  editingFallbacks.value = false;
   modal.value = "checkout";
+  void nextTick(() => checkoutInput.value?.focus());
+}
+
+function onPullSpecifyEnter() {
+  if (pullSource.value === "specify") {
+    void confirmPull();
+  }
+}
+
+function onCheckoutSpecifyEnter() {
+  if (checkoutSource.value === "specify") {
+    void confirmCheckout();
+  }
 }
 
 function closeModal() {
@@ -291,7 +309,6 @@ function removeFallback() {
         Specify
       </label>
       <input
-        v-if="pullSource === 'specify'"
         v-model="specifyBranch"
         type="text"
         placeholder="branch name"
@@ -299,8 +316,9 @@ function removeFallback() {
         autocorrect="off"
         autocomplete="off"
         spellcheck="false"
-        autofocus
-        @keydown.enter="confirmPull"
+        @click="pullSource = 'specify'"
+        @input="pullSource = 'specify'"
+        @keydown.enter="onPullSpecifyEnter"
       />
     </fieldset>
     <p class="muted tiny pull-hint">{{ pullHint }}</p>
@@ -323,10 +341,11 @@ function removeFallback() {
         <input v-model="checkoutSource" type="radio" value="specify" />
         Specify
       </label>
-      <div v-if="checkoutSource === 'specify'" class="specify-panel">
+      <div class="specify-panel" :class="{ idle: checkoutSource !== 'specify' }">
         <label class="modal-label">
           <span class="muted tiny">Check out this branch</span>
           <input
+            ref="checkoutInput"
             v-model="checkoutTarget"
             type="text"
             placeholder="feature/JIRA-123"
@@ -334,11 +353,19 @@ function removeFallback() {
             autocorrect="off"
             autocomplete="off"
             spellcheck="false"
-            autofocus
-            @keydown.enter="confirmCheckout"
+            @click="checkoutSource = 'specify'"
+            @input="checkoutSource = 'specify'"
+            @keydown.enter="onCheckoutSpecifyEnter"
           />
         </label>
-        <div class="specify-fallbacks">
+        <div
+          v-if="checkoutSource === 'specify' && !editingFallbacks"
+          class="specify-fallbacks-summary"
+        >
+          <span class="muted tiny">Falls back to {{ fallbackSummary }}</span>
+          <button class="ghost tiny" type="button" @click="editingFallbacks = true">Edit</button>
+        </div>
+        <div v-else-if="checkoutSource === 'specify'" class="specify-fallbacks">
           <p class="muted tiny specify-fallbacks-title">Fallbacks</p>
           <div v-if="extraFallbacks.length" class="fallback-editor">
             <input
