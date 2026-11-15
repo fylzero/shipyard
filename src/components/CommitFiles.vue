@@ -3,9 +3,10 @@ import type { CommitFile } from "../types";
 import FileStatusIcon from "./FileStatusIcon.vue";
 import PathLabel from "./PathLabel.vue";
 
-defineProps<{
+const props = defineProps<{
   title: string;
   meta: string;
+  hash?: string;
   files: CommitFile[];
   selectedPath: string;
   loading?: boolean;
@@ -14,10 +15,20 @@ defineProps<{
 const emit = defineEmits<{
   select: [file: CommitFile];
   close: [];
+  copyHash: [];
+  menu: [x: number, y: number];
 }>();
 
 function fileTitle(file: CommitFile) {
   return file.oldPath ? `${file.oldPath} → ${file.path}` : file.path;
+}
+
+function onHeaderMenu(event: MouseEvent) {
+  if (!props.hash) {
+    return;
+  }
+  event.preventDefault();
+  emit("menu", event.clientX, event.clientY);
 }
 </script>
 
@@ -25,12 +36,25 @@ function fileTitle(file: CommitFile) {
   <div class="file-pane">
     <section class="file-section">
       <div class="pane-header commit-files-header">
-        <div class="commit-files-title">
+        <div class="commit-files-title" @contextmenu="onHeaderMenu">
           <div class="file-heading">
             <strong :title="title">{{ title }}</strong>
             <span class="file-count-badge">{{ files.length }}</span>
           </div>
-          <p class="commit-files-meta muted tiny">{{ meta }}</p>
+          <p class="commit-files-meta muted tiny">
+            <template v-if="hash">
+              <button
+                class="commit-files-hash"
+                type="button"
+                :title="`${hash}\nClick to copy`"
+                @click="emit('copyHash')"
+              >
+                {{ hash.slice(0, 7) }}
+              </button>
+              ·
+            </template>
+            {{ meta }}
+          </p>
         </div>
         <button class="ghost tiny" type="button" @click="emit('close')">Close</button>
       </div>

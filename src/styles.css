@@ -4267,6 +4267,22 @@ button.commit-search-older-row.active {
   margin: 0;
 }
 
+.commit-files-hash {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-family: var(--font-code);
+  cursor: pointer;
+}
+
+.commit-files-hash:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
+  text-decoration: underline;
+}
+
 .commit-graph-cell {
   overflow: hidden;
   max-width: 156px;

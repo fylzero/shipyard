@@ -161,6 +161,7 @@ const commitDetail = computed(() => {
   if (stash) {
     return {
       title: stash.message,
+      hash: "",
       meta: `${stashRef(stash.index)} · ${formatCommitDate(stash.date)}`,
       label: stashRef(stash.index),
     };
@@ -169,7 +170,8 @@ const commitDetail = computed(() => {
   if (commit) {
     return {
       title: commit.subject,
-      meta: `${commit.hash.slice(0, 7)} · ${commit.author} · ${formatCommitDate(commit.date)}`,
+      hash: commit.hash,
+      meta: `${commit.author} · ${formatCommitDate(commit.date)}`,
       label: commit.hash.slice(0, 7),
     };
   }
@@ -287,6 +289,9 @@ const commitMenuHasMerge = computed(() => {
     return false;
   }
   const selected = new Set(menu.hashes);
+  if (selected.has(menu.commit.hash) && menu.commit.parents.length > 1) {
+    return true;
+  }
   return commits.value.some((commit) => selected.has(commit.hash) && commit.parents.length > 1);
 });
 const newBranchStartShort = computed(() => {
@@ -2120,9 +2125,20 @@ function revertMenuCommits() {
   return runRepoAction("Reverting…", () => api.revertCommits(match.repo.path, hashes));
 }
 
+function openSelectedCommitMenu(x: number, y: number) {
+  const commit = selectedCommit.value;
+  if (commit) {
+    openCommitMenu(commit, [commit.hash], x, y);
+  }
+}
+
 async function copyMenuShas() {
   const hashes = commitMenu.value?.hashes ?? [];
   closeCommitMenu();
+  await copyCommitShas(hashes);
+}
+
+async function copyCommitShas(hashes: string[]) {
   if (!hashes.length) {
     return;
   }
@@ -3514,11 +3530,14 @@ void listen<RepoFilesChanged>("repo-files-changed", (event) => {
         v-else-if="commitDetail"
         :title="commitDetail.title"
         :meta="commitDetail.meta"
+        :hash="commitDetail.hash"
         :files="commitFiles"
         :selected-path="selectedCommitFile?.path ?? ''"
         :loading="commitFilesLoading"
         @select="selectCommitFile"
         @close="closeCommitDetail"
+        @copy-hash="copyCommitShas(commitDetail.hash ? [commitDetail.hash] : [])"
+        @menu="openSelectedCommitMenu"
       />
       <WorkingTree
         v-else
