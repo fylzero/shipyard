@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.0",
+    date: "November 18, 2026",
+    notes: [
+      "The Repositories screen has a Delete merged branches button next to Fetch and Pull. It does what Delete merged branches at the bottom of the Branches tab does, for every repository at once. It shows what it found, grouped by repository, and asks once before deleting. If Git won't safely delete some of them, it asks once at the end whether to force delete them all, not once per repository.",
+      "In the Pull dialog, the Specify field works like the one in Checkout. It's empty and ready to type in as soon as the dialog opens, and typing picks Specify.",
+    ],
+  },
+  {
     version: "1.20.0",
     date: "November 14, 2026",
     notes: [

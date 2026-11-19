@@ -113,6 +113,7 @@ loadFallbacks(props.group.checkoutFallbacks);
 const checkoutSource = ref<"develop" | "specify" | "master" | "main">("develop");
 const checkoutTarget = ref("");
 const checkoutInput = ref<HTMLInputElement | null>(null);
+const pullInput = ref<HTMLInputElement | null>(null);
 const editingFallbacks = ref(false);
 const headerColor = ref(props.group.headerColor || DEFAULT_HEADER);
 const modal = ref<"pull" | "checkout" | null>(null);
@@ -367,8 +368,9 @@ function openPull() {
     return;
   }
   pullSource.value = "current";
-  specifyBranch.value = props.group.pullFromBranch;
+  specifyBranch.value = "";
   modal.value = "pull";
+  void nextTick(() => pullInput.value?.focus());
 }
 
 function pullCurrent() {
@@ -742,9 +744,10 @@ function onHeaderClick(event: MouseEvent) {
           Specify
         </label>
         <input
+          ref="pullInput"
           v-model="specifyBranch"
           type="text"
-          placeholder="branch name"
+          placeholder="feature/JIRA-123"
           autocapitalize="off"
           autocorrect="off"
           autocomplete="off"

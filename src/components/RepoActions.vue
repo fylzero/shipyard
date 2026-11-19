@@ -35,6 +35,7 @@ const specifyBranch = ref("");
 const checkoutSource = ref<"develop" | "specify" | "master" | "main">("develop");
 const checkoutTarget = ref("");
 const checkoutInput = ref<HTMLInputElement | null>(null);
+const pullInput = ref<HTMLInputElement | null>(null);
 const extraFallbacks = ref<string[]>([]);
 const lastFallback = ref<LastFallback>("develop");
 const editingFallbacks = ref(false);
@@ -134,8 +135,9 @@ const fallbackSummary = computed(() => fallbackList().join(" → "));
 
 function openPull() {
   pullSource.value = "current";
-  specifyBranch.value = group.value?.pullFromBranch || "develop";
+  specifyBranch.value = "";
   modal.value = "pull";
+  void nextTick(() => pullInput.value?.focus());
 }
 
 function pullCurrent() {
@@ -309,9 +311,10 @@ function removeFallback() {
         Specify
       </label>
       <input
+        ref="pullInput"
         v-model="specifyBranch"
         type="text"
-        placeholder="branch name"
+        placeholder="feature/JIRA-123"
         autocapitalize="off"
         autocorrect="off"
         autocomplete="off"

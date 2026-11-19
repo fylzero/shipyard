@@ -1670,6 +1670,20 @@ button.tab-tool.update:hover:not(:disabled) {
   box-sizing: border-box;
 }
 
+.groups-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.groups-header-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .groups-display .groups-search-count {
   width: auto;
   white-space: nowrap;

@@ -1,5 +1,6 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import * as api from "../api";
 import { dashboardIds as orderDashboard } from "../dashboard";
 import type {
@@ -92,6 +93,11 @@ const pullAllCancelled = ref(false);
 const pullAllTotal = ref(0);
 const pullAllDone = ref(0);
 const pullProgress = ref<Record<string, string>>({});
+const sweepingAll = ref(false);
+const sweepCancelled = ref(false);
+const sweepPhase = ref<"scan" | "delete">("scan");
+const sweepTotal = ref(0);
+const sweepDone = ref(0);
 const pullBranchByGroup = ref<Record<string, string>>({});
 const pullCancelled = ref<Record<string, boolean>>({});
 const checkoutProgress = ref<Record<string, string>>({});
@@ -107,6 +113,14 @@ const gitWatches = new Set<string>();
 let gitWatchSync: Promise<void> = Promise.resolve();
 const statusInFlight = new Map<string, Promise<void>>();
 const statusQueued = new Set<string>();
+/** Merged branches Delete merged branches would remove, per repo id. */
+const mergedCounts = ref<Record<string, number>>({});
+const mergedCountTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const mergedCountInFlight = new Set<string>();
+const mergedCountQueued = new Set<string>();
+const mergedCountWaiters: (() => void)[] = [];
+let mergedCountRunning = 0;
+const MERGED_COUNT_CONCURRENCY = 3;
 
 function repoWatchKey(path: string) {
   return path.trim().replace(/\/+$/, "");
@@ -155,6 +169,8 @@ export function useApp() {
         ...groups.value.filter((group) => group.expanded).map((group) => refreshStatus(group.id)),
         refreshStatus(STANDALONE_GROUP_ID),
       ]);
+      // Collapsed groups have no status yet, so count their repos too.
+      allRepoIds().forEach((id) => scheduleMergedCount(id));
     } catch (err) {
       error.value = String(err);
     }
@@ -185,7 +201,88 @@ export function useApp() {
   function applyStatus(status: RepoStatus) {
     statuses.value = { ...statuses.value, [status.id]: status };
     lastRefreshAt.value = new Date();
+    scheduleMergedCount(status.id);
   }
+
+  async function withMergedCountSlot<T>(work: () => Promise<T>) {
+    if (mergedCountRunning >= MERGED_COUNT_CONCURRENCY) {
+      await new Promise<void>((resolve) => mergedCountWaiters.push(resolve));
+    }
+    mergedCountRunning += 1;
+    try {
+      return await work();
+    } finally {
+      mergedCountRunning -= 1;
+      mergedCountWaiters.shift()?.();
+    }
+  }
+
+  /**
+   * Count what Delete merged branches would remove in one repo, using the same
+   * rules as the Branches tab. Bursts of status refreshes collapse into one read.
+   */
+  function scheduleMergedCount(repoId: string, delay = 400) {
+    const pending = mergedCountTimers.get(repoId);
+    if (pending) {
+      clearTimeout(pending);
+    }
+    mergedCountTimers.set(
+      repoId,
+      setTimeout(() => {
+        mergedCountTimers.delete(repoId);
+        void countMergedBranches(repoId);
+      }, delay),
+    );
+  }
+
+  async function countMergedBranches(repoId: string) {
+    if (mergedCountInFlight.has(repoId)) {
+      mergedCountQueued.add(repoId);
+      return;
+    }
+    mergedCountInFlight.add(repoId);
+    try {
+      do {
+        mergedCountQueued.delete(repoId);
+        const found = findRepo(repoId);
+        if (!found) {
+          const next = { ...mergedCounts.value };
+          delete next[repoId];
+          mergedCounts.value = next;
+          return;
+        }
+        let count = 0;
+        try {
+          const overview = await withMergedCountSlot(() =>
+            api.branchOverview(
+              found.repo.path,
+              found.group?.pullFromBranch?.trim() || undefined,
+              true,
+            ),
+          );
+          count = overview.branches.filter(
+            (branch) => branch.merged && !branch.current && !branch.protected && !branch.pending,
+          ).length;
+        } catch {
+          // A missing or broken repo has nothing to delete.
+        }
+        mergedCounts.value = { ...mergedCounts.value, [repoId]: count };
+      } while (mergedCountQueued.has(repoId));
+    } finally {
+      mergedCountInFlight.delete(repoId);
+    }
+  }
+
+  function allRepoIds() {
+    return [
+      ...standaloneRepos.value.map((repo) => repo.id),
+      ...groups.value.flatMap((group) => group.repos.map((repo) => repo.id)),
+    ];
+  }
+
+  const mergedBranchTotal = computed(() =>
+    allRepoIds().reduce((sum, id) => sum + (mergedCounts.value[id] ?? 0), 0),
+  );
 
   function patchRepoStatus(repoId: string, patch: Partial<RepoStatus>) {
     const current = statuses.value[repoId];
@@ -284,6 +381,7 @@ export function useApp() {
       const next = { ...statuses.value };
       for (const status of list) {
         next[status.id] = status;
+        scheduleMergedCount(status.id);
       }
       statuses.value = next;
       lastRefreshAt.value = new Date();
@@ -563,7 +661,12 @@ export function useApp() {
   async function refreshAll(options?: { notify?: boolean }) {
     const standaloneCount = standaloneRepos.value.length;
     const groupedCount = groups.value.reduce((sum, group) => sum + group.repos.length, 0);
-    if (refreshingAll.value || pullingAll.value || !(standaloneCount || groupedCount)) {
+    if (
+      refreshingAll.value ||
+      pullingAll.value ||
+      sweepingAll.value ||
+      !(standaloneCount || groupedCount)
+    ) {
       return;
     }
     const notify = options?.notify ?? true;
@@ -1050,7 +1153,12 @@ export function useApp() {
   }
 
   function canRunRepoAction(groupId: string, repoId: string) {
-    return !refreshingRepos.value[repoId] && !busy.value[groupId] && !pullingAll.value;
+    return (
+      !refreshingRepos.value[repoId] &&
+      !busy.value[groupId] &&
+      !pullingAll.value &&
+      !sweepingAll.value
+    );
   }
 
   function hasBusyRepo(group: RepoGroup) {
@@ -1220,12 +1328,219 @@ export function useApp() {
     return `Pulled ${repos}.`;
   }
 
+  type SweepRepo = {
+    groupId: string;
+    repoId: string;
+    path: string;
+    preferred?: string;
+    name: string;
+    branches: string[];
+  };
+
+  function plural(count: number, one: string, many: string) {
+    return count === 1 ? `1 ${one}` : `${count} ${many}`;
+  }
+
+  function sweepSummary(repos: SweepRepo[], names: (repo: SweepRepo) => string[]) {
+    const shown = 12;
+    const lines = repos.slice(0, shown).map((repo) => `${repo.name}: ${names(repo).join(", ")}`);
+    if (repos.length > shown) {
+      lines.push(`…and ${plural(repos.length - shown, "more repository", "more repositories")}`);
+    }
+    return lines.join("\n");
+  }
+
+  const sweepProgressLabel = computed(() => {
+    if (!sweepingAll.value) {
+      return "";
+    }
+    const verb = sweepPhase.value === "scan" ? "Scanning" : "Deleting";
+    return sweepTotal.value ? `${verb} ${sweepDone.value}/${sweepTotal.value}` : `${verb}…`;
+  });
+
+  function cancelSweep() {
+    sweepCancelled.value = true;
+  }
+
+  /**
+   * Delete merged branches, the same as the branches tab, for every repo at
+   * once. One confirmation up front, and at most one force prompt at the end.
+   */
+  async function sweepMergedBranches() {
+    if (sweepingAll.value || refreshingAll.value || pullingAll.value) {
+      return;
+    }
+    const jobs: SweepRepo[] = [
+      ...standaloneRepos.value.map((repo) => ({
+        groupId: STANDALONE_GROUP_ID,
+        repoId: repo.id,
+        path: repo.path,
+        preferred: undefined,
+        name: repoDisplayName(repo.id, repo.path),
+        branches: [],
+      })),
+      ...groups.value.flatMap((group) =>
+        group.repos.map((repo) => ({
+          groupId: group.id,
+          repoId: repo.id,
+          path: repo.path,
+          preferred: group.pullFromBranch?.trim() || undefined,
+          name: repoDisplayName(repo.id, repo.path),
+          branches: [] as string[],
+        })),
+      ),
+    ].filter((job) => canRunRepoAction(job.groupId, job.repoId));
+    if (!jobs.length) {
+      return;
+    }
+
+    sweepingAll.value = true;
+    sweepCancelled.value = false;
+    sweepPhase.value = "scan";
+    sweepDone.value = 0;
+    sweepTotal.value = jobs.length;
+    error.value = "";
+    const touched: SweepRepo[] = [];
+    try {
+      const found: SweepRepo[] = [];
+      await runPool(
+        jobs,
+        async (job) => {
+          try {
+            const overview = await api.branchOverview(job.path, job.preferred, true);
+            const branches = overview.branches
+              .filter(
+                (branch) => branch.merged && !branch.current && !branch.protected && !branch.pending,
+              )
+              .map((branch) => branch.name);
+            if (branches.length) {
+              found.push({ ...job, branches });
+            }
+          } catch {
+            // A missing or broken repo just has nothing to sweep.
+          } finally {
+            sweepDone.value += 1;
+          }
+        },
+        () => sweepCancelled.value,
+      );
+      if (sweepCancelled.value) {
+        return;
+      }
+      if (!found.length) {
+        showToast("No merged branches to delete.");
+        return;
+      }
+      found.sort((a, b) => a.name.localeCompare(b.name));
+      const total = found.reduce((sum, repo) => sum + repo.branches.length, 0);
+      const ok = await confirm(
+        `Delete ${plural(total, "merged local branch", "merged local branches")} across ${plural(found.length, "repository", "repositories")}?\n\n${sweepSummary(found, (repo) => repo.branches)}\n\nPartial and unique branches stay. This never deletes develop, main, master, or the current branch.`,
+        {
+          title: "Delete merged branches",
+          kind: "warning",
+          okLabel: "Delete",
+          cancelLabel: "Cancel",
+        },
+      );
+      if (!ok) {
+        return;
+      }
+
+      sweepPhase.value = "delete";
+      sweepDone.value = 0;
+      sweepTotal.value = found.length;
+      let deleted = 0;
+      const refused: SweepRepo[] = [];
+      const failures: RepoActionResult[] = [];
+      await runPool(
+        found,
+        async (repo) => {
+          try {
+            const result = await api.deleteMergedBranches(
+              repo.path,
+              repo.preferred,
+              false,
+              repo.branches,
+            );
+            deleted += result.deleted.length;
+            if (result.refused.length) {
+              refused.push({ ...repo, branches: result.refused });
+            }
+            if (result.errors.length) {
+              failures.push({ path: repo.path, ok: false, message: result.errors.join(" ") });
+            }
+          } catch (err) {
+            failures.push({ path: repo.path, ok: false, message: String(err) });
+          } finally {
+            touched.push(repo);
+            sweepDone.value += 1;
+          }
+        },
+        () => sweepCancelled.value,
+      );
+
+      if (refused.length && !sweepCancelled.value) {
+        refused.sort((a, b) => a.name.localeCompare(b.name));
+        const count = refused.reduce((sum, repo) => sum + repo.branches.length, 0);
+        const forceOk = await confirm(
+          `Git would not safely delete ${plural(count, "branch", "branches")}. They are already contained in the integration branch, but not fully merged into the branch each repo is on (squash merges and unmerged remotes do this).\n\n${sweepSummary(refused, (repo) => repo.branches)}\n\nForce delete them?`,
+          {
+            title: "Force delete leftover branches",
+            kind: "warning",
+            okLabel: "Force delete",
+            cancelLabel: "Keep",
+          },
+        );
+        if (forceOk) {
+          await runPool(
+            refused,
+            async (repo) => {
+              try {
+                const result = await api.deleteMergedBranches(
+                  repo.path,
+                  repo.preferred,
+                  true,
+                  repo.branches,
+                );
+                deleted += result.deleted.length;
+                if (result.errors.length) {
+                  failures.push({ path: repo.path, ok: false, message: result.errors.join(" ") });
+                }
+              } catch (err) {
+                failures.push({ path: repo.path, ok: false, message: String(err) });
+              }
+            },
+            () => false,
+          );
+        }
+      }
+
+      const repoCount = new Set(touched.map((repo) => repo.repoId)).size;
+      const success = `Deleted ${plural(deleted, "merged branch", "merged branches")} across ${plural(repoCount, "repository", "repositories")}.`;
+      if (failures.length) {
+        presentActionResults("Delete merged branches", failures, {
+          success,
+          error: `${success} ${plural(failures.length, "repository", "repositories")} had errors.`,
+        });
+      } else {
+        showToast(success);
+      }
+    } finally {
+      sweepingAll.value = false;
+      sweepCancelled.value = false;
+      sweepDone.value = 0;
+      sweepTotal.value = 0;
+      await Promise.all(touched.map((repo) => refreshRepoStatus(repo.groupId, repo.repoId)));
+    }
+  }
+
   async function pullAll() {
     const standaloneCount = standaloneRepos.value.length;
     const groupedCount = groups.value.reduce((sum, group) => sum + group.repos.length, 0);
     if (
       pullingAll.value ||
       refreshingAll.value ||
+      sweepingAll.value ||
       Object.keys(pullProgress.value).length ||
       !(standaloneCount || groupedCount)
     ) {
@@ -1570,6 +1885,12 @@ export function useApp() {
     cancelRefresh,
     cancelPull,
     cancelPullAll,
+    sweepMergedBranches,
+    cancelSweep,
+    sweepingAll,
+    sweepCancelled,
+    sweepProgressLabel,
+    mergedBranchTotal,
     cancelCheckout,
     load,
     refreshStatus,
