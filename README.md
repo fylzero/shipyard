@@ -69,7 +69,7 @@ Shipyard is designed for developers who manage multiple repositories and want a 
 
 ### Branch Management
 
-![Branch list with tracking information and merge status](docs/screenshots/04-branches.png)
+![Branch list with prefix groups, pinned branches, and merge status](docs/screenshots/04-branches.png)
 
 ### Repository Settings
 

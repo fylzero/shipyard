@@ -120,10 +120,20 @@ git add .
 fake_commit "Initial project setup"
 
 # Add more commits on main
-for i in {1..8}; do
-  echo "// Update $i" >> src/main.js
+MAIN_MSGS=(
+  "Add Vue router with home and settings routes"
+  "Configure ESLint and Prettier"
+  "Add Pinia store for user session"
+  "Create base layout with sidebar navigation"
+  "Add API client with request retries"
+  "Fix flicker when switching routes"
+  "Add dark mode toggle to header"
+  "Bump Vite to 5.4 and update lockfile"
+)
+for i in "${!MAIN_MSGS[@]}"; do
+  echo "// ${MAIN_MSGS[$i]}" >> src/main.js
   git add src/main.js
-  fake_commit "Update main application code (iteration $i)"
+  fake_commit "${MAIN_MSGS[$i]}"
 done
 
 # Create feature branch
@@ -181,10 +191,18 @@ git merge feature/auth-system --no-ff --no-edit --quiet
 
 # Create develop branch
 git checkout -b develop --quiet
-for i in {1..5}; do
-  echo "// Develop update $i" >> src/main.js
+for msg in "Add notifications dropdown" "Show unread badge on bell icon" "Mark notifications read on open" "Add empty state for notifications" "Polish notification spacing on mobile"; do
+  echo "// $msg" >> src/main.js
   git add .
-  fake_commit "Development iteration $i"
+  fake_commit "$msg"
+done
+# More in-flight branches so the branch list shows prefix groups
+git checkout main --quiet
+for b in "feature/billing-page:Add billing page skeleton" "feature/csv-export:Export reports as CSV" "fix/avatar-upload:Fix avatar upload on Safari" "fix/session-timeout:Refresh session before it expires"; do
+  git checkout -b "${b%%:*}" --quiet
+  echo "// ${b#*:}" >> src/main.js
+  git add . && fake_commit "${b#*:}"
+  git checkout main --quiet
 done
 
 # Create tags
@@ -203,13 +221,15 @@ git branch --set-upstream-to=origin/main main --quiet
 # Make local ahead of remote
 echo "// Local changes" >> src/main.js
 git add .
-fake_commit "Local commit not yet pushed"
+fake_commit "Add keyboard shortcuts help dialog"
 
 # Create working tree changes
 mkdir -p src/components
-cat > src/components/NewFeature.vue << 'EOF'
+cat > src/components/RememberMe.vue << 'EOF'
 <template>
-  <div>New feature component</div>
+  <label class="remember-me">
+    <input type="checkbox" v-model="remember" /> Keep me signed in
+  </label>
 </template>
 EOF
 
@@ -245,7 +265,7 @@ export function logout() {
 }
 EOF2
 
-echo "untracked-file.txt" > untracked-file.txt
+printf "VITE_API_URL=http://localhost:3000\n" > .env.example
 
 success "Repository 1 complete: web-app-project"
 
@@ -292,10 +312,10 @@ git add .
 fake_commit "Initial API server setup"
 
 # Add commits
-for i in {1..12}; do
-  echo "// Server update $i" >> src/server.js
+for msg in "Add /health endpoint" "Add users routes" "Validate request bodies with zod" "Add JWT auth middleware" "Connect to Postgres with pg pool" "Add migrations for users table" "Return 404 JSON for unknown routes" "Add CORS config" "Paginate GET /users" "Cache user lookups for 60s" "Add graceful shutdown" "Upgrade Express to 4.21"; do
+  echo "// $msg" >> src/server.js
   git add .
-  fake_commit "Server enhancement $i"
+  fake_commit "$msg"
 done
 
 # Create branches
@@ -417,10 +437,10 @@ git add .
 fake_commit "Initialize documentation site"
 
 # Add commits
-for i in {1..15}; do
-  echo "- Section $i" >> docs/guide.md
+for msg in "Add installation guide" "Document configuration options" "Add quickstart tutorial" "Fix broken links in guide" "Add screenshots to quickstart" "Document environment variables" "Add troubleshooting page" "Add search to sidebar" "Clarify upgrade steps" "Add API authentication page" "Fix typo in install steps" "Add changelog page" "Document rate limits" "Add contributing guide" "Refresh landing page copy"; do
+  echo "- $msg" >> docs/guide.md
   git add .
-  fake_commit "Update documentation section $i"
+  fake_commit "$msg"
 done
 
 # Create branches
@@ -467,6 +487,7 @@ success "Repository 3 complete: docs-site"
 # Extra repositories so the dashboard looks lived-in
 # ============================================================================
 
+STEP_MSGS=("Add CI workflow" "Update dependencies" "Fix flaky test" "Add README badges" "Tidy config files" "Improve error messages" "Add release script" "Bump version" "Refactor helpers")
 make_simple_repo() {
   local name="$1" branch_name="$2" commits="$3" dirty="$4" ahead="$5"
   HOURS_AGO=200
@@ -478,7 +499,7 @@ make_simple_repo() {
   git add . && fake_commit "Initial commit"
   for ((i=1; i<=commits; i++)); do
     echo "change $i" >> notes.txt
-    git add . && fake_commit "Improve $name (step $i)"
+    git add . && fake_commit "${STEP_MSGS[$(( (i-1) % ${#STEP_MSGS[@]} ))]}"
   done
   git checkout -b "$branch_name" --quiet
   echo "wip" >> notes.txt && git add . && fake_commit "Work in progress on $branch_name"
@@ -490,7 +511,7 @@ make_simple_repo() {
   git fetch origin --quiet
   git branch --set-upstream-to=origin/main main --quiet
   for ((i=1; i<=ahead; i++)); do
-    echo "local $i" >> notes.txt && git add . && fake_commit "Local change $i"
+    echo "local $i" >> notes.txt && git add . && fake_commit "Tune timeouts ($i)"
   done
   for ((i=1; i<=dirty; i++)); do
     echo "uncommitted $i" > "scratch-$i.txt"

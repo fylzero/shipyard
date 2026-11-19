@@ -143,7 +143,7 @@ click_ref() {
 }
 
 # Park the pointer somewhere harmless so no row or button shows a hover state.
-park_pointer() { click_ref 640 600 0.4; }
+park_pointer() { click_ref 512 635 0.4; }   # empty middle of the status bar
 
 capture() {
   local name="$1"
@@ -167,8 +167,8 @@ bring_to_front
 success "Window ready (${WINDOW_WIDTH}x${WINDOW_HEIGHT} at $WINDOW_X,$WINDOW_Y)"
 
 # The first click after launch can be swallowed while the window activates.
-click_ref 640 600 0.5
-click_ref 640 600 0.5
+click_ref 512 635 0.5
+click_ref 512 635 0.5
 
 # ----------------------------------------------------------- screenshots ----
 # 1. Dashboard with groups
@@ -188,6 +188,8 @@ capture 03-working-tree
 # 4. Branches
 click_ref 30 67 1.5     # Back
 click_ref 108 90 1.5    # Branches tab
+click_ref 40 225 0.8    # expand fix/ (bottom group first so feature/ stays put)
+click_ref 40 202 0.8    # expand feature/
 park_pointer
 capture 04-branches
 
