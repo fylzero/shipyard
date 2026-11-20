@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.3",
+    date: "November 19, 2026",
+    notes: [
+      "On the Repositories screen, the Fetch, Pull, and Delete merged branches buttons line up with the Shipyard name in the logo instead of sitting beside the middle of it.",
+    ],
+  },
+  {
     version: "1.21.2",
     date: "November 19, 2026",
     notes: [

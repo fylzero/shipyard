@@ -1680,8 +1680,14 @@ button.tab-tool.update:hover:not(:disabled) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: center;
   justify-content: flex-end;
   gap: 0.45rem;
+  /* line the buttons up with the Shipyard wordmark in the logo, which sits
+     ~2.1rem below the icon's center; padding twice that shifts the centered
+     row down by the same amount regardless of button height */
+  align-self: stretch;
+  padding-top: 4.25rem;
 }
 
 .groups-header-actions button {
