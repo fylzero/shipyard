@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.6",
+    date: "November 20, 2026",
+    notes: [
+      "Toast messages use a solid green or red background that looks the same in light and dark themes, matching Lockshot and Recon.",
+    ],
+  },
+  {
     version: "1.21.5",
     date: "November 20, 2026",
     notes: [
