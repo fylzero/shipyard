@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.2",
+    date: "November 19, 2026",
+    notes: [
+      "Right-clicking somewhere without its own menu no longer shows the Reload and Inspect Element menu. Text fields still have their usual cut, copy, and paste menu.",
+    ],
+  },
+  {
     version: "1.21.1",
     date: "November 19, 2026",
     notes: [
