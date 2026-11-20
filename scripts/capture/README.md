@@ -115,6 +115,16 @@ This will:
 - Record and convert the demo GIF
 - Clean up and save everything to `docs/screenshots/` and `docs/`
 
+### Capture From a Fresh Build
+
+If the installed app is older than the source (new icon, UI changes), build an app bundle and point the script at it instead of replacing `/Applications/Shipyard.app`:
+
+```bash
+bun run tauri build --bundles app
+SHIPYARD_APP_BINARY="$PWD/src-tauri/target/release/bundle/macos/Shipyard.app/Contents/MacOS/shipyard" \
+  bash scripts/capture/capture.sh
+```
+
 ### Dry Run
 
 Preview what would be captured without launching the app:

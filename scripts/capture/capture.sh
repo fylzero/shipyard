@@ -30,7 +30,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SCREENSHOTS_DIR="$PROJECT_ROOT/docs/screenshots"
 DEMO_GIF_PATH="$PROJECT_ROOT/docs/demo.gif"
 
-APP_BINARY="/Applications/Shipyard.app/Contents/MacOS/Shipyard"
+APP_BINARY="${SHIPYARD_APP_BINARY:-/Applications/Shipyard.app/Contents/MacOS/Shipyard}"
 DEMO_DIR="/tmp/shipyard-demo-capture"   # keys mentioning this are purged from webview storage
 ISOLATED_HOME="/tmp/shipyard-capture-home"
 
@@ -77,7 +77,7 @@ cleanup() {
 trap cleanup EXIT
 
 # --------------------------------------------------------- prerequisites ----
-[[ -x "$APP_BINARY" ]] || die "Shipyard.app not found at /Applications/Shipyard.app"
+[[ -x "$APP_BINARY" ]] || die "Shipyard binary not found at $APP_BINARY (set SHIPYARD_APP_BINARY to override)"
 command -v ffmpeg >/dev/null 2>&1 || die "ffmpeg is required: brew install ffmpeg"
 command -v python3 >/dev/null 2>&1 || die "python3 is required"
 
@@ -176,7 +176,7 @@ park_pointer
 capture 01-dashboard
 
 # 2. Commit history with branch graph (open the first repository)
-click_ref 137 211 2.5
+click_ref 137 242 2.5
 park_pointer
 capture 02-history
 
@@ -213,7 +213,7 @@ if [[ -z "$ONLY_SHOT" ]]; then
   RECORD_PID=$!
   sleep 1.5
 
-  click_ref 137 211 2.5    # open web-app-project
+  click_ref 137 242 2.5    # open web-app-project
   click_ref 330 260 2.5    # a commit
   click_ref 30 67 1.5      # back
   click_ref 860 114 2.5    # an unstaged file diff
