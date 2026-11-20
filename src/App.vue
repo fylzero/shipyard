@@ -10,6 +10,7 @@ import RepoPane from "./components/RepoPane.vue";
 import OutputModal from "./components/OutputModal.vue";
 import Toast from "./components/Toast.vue";
 import Modal from "./components/Modal.vue";
+import BranchConfirmModal from "./components/BranchConfirmModal.vue";
 import GroupsView from "./views/GroupsView.vue";
 
 const HistoryView = defineAsyncComponent(() => import("./views/HistoryView.vue"));
@@ -24,6 +25,7 @@ const SettingsView = defineAsyncComponent({
 });
 const ChangelogView = defineAsyncComponent(() => import("./views/ChangelogView.vue"));
 import { useApp } from "./composables/useApp";
+import { useBranchConfirm } from "./composables/useBranchConfirm";
 import { resolveFontStack } from "./fonts";
 import { watchWindowFocus } from "./notifications";
 import { useUpdater } from "./composables/useUpdater";
@@ -58,6 +60,7 @@ const {
   countdownLabel,
   lastRefreshAt,
 } = useApp();
+const { request: branchConfirm, answer: answerBranchConfirm } = useBranchConfirm();
 
 const lastFetchTitle = computed(() => {
   if (!lastRefreshAt.value) {
@@ -278,6 +281,11 @@ watch(statuses, () => {
       :title="actionOutput.title"
       :results="actionOutput.results"
       @close="dismissOutput"
+    />
+    <BranchConfirmModal
+      v-if="branchConfirm"
+      v-bind="branchConfirm"
+      @answer="answerBranchConfirm"
     />
     <Modal
       v-if="promptOpen"

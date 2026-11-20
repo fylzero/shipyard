@@ -644,6 +644,135 @@ button.commit.has-draft::after {
   margin-top: 1rem;
 }
 
+button.destructive {
+  background: var(--bad);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+button.destructive:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bad) 85%, #000);
+  border-color: transparent;
+}
+
+button.destructive:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--bad) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.branch-confirm {
+  display: flex;
+  flex-direction: column;
+  max-height: min(40rem, calc(100vh - 4rem));
+}
+
+.branch-confirm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.branch-confirm-badge {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
+  color: var(--bad);
+}
+
+.branch-confirm-badge svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.branch-confirm-title {
+  margin-bottom: 0.2rem;
+}
+
+.branch-confirm-message {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.branch-confirm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-height: 0;
+  margin-top: 0.95rem;
+  padding: 0.75rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-input);
+}
+
+.branch-confirm-repo {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+}
+
+.branch-confirm-repo-name {
+  font-weight: 600;
+}
+
+.branch-confirm-count {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35rem;
+}
+
+.branch-confirm-branches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.branch-confirm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: var(--chip);
+  font-family: var(--font-code);
+  font-size: 0.78rem;
+  line-height: 1.35rem;
+}
+
+.branch-confirm-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-confirm-chip .branch-icon {
+  flex-shrink: 0;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--muted);
+}
+
+.branch-confirm-note {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .output-layer {
   position: fixed;
   inset: 0;

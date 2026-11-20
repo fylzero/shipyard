@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.5",
+    date: "November 20, 2026",
+    notes: [
+      "Delete merged branches asks for confirmation in a Shipyard dialog instead of a plain system message. Branches show as a list grouped by repository, and the Delete button says how many it will remove. The force delete follow-up looks the same.",
+    ],
+  },
+  {
     version: "1.21.4",
     date: "November 19, 2026",
     notes: [

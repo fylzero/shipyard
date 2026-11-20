@@ -1,7 +1,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { listen } from "@tauri-apps/api/event";
-import { confirm } from "@tauri-apps/plugin-dialog";
 import * as api from "../api";
+import { useBranchConfirm } from "./useBranchConfirm";
 import { dashboardIds as orderDashboard } from "../dashboard";
 import type {
   AppData,
@@ -88,6 +88,7 @@ const toastKind = ref<"success" | "error">("success");
 const toastHasDetails = ref(false);
 const actionOutput = ref<{ title: string; results: RepoActionResult[] } | null>(null);
 const actionOutputOpen = ref(false);
+const { confirmBranches } = useBranchConfirm();
 const pullingAll = ref(false);
 const pullAllCancelled = ref(false);
 const pullAllTotal = ref(0);
@@ -1341,15 +1342,6 @@ export function useApp() {
     return count === 1 ? `1 ${one}` : `${count} ${many}`;
   }
 
-  function sweepSummary(repos: SweepRepo[], names: (repo: SweepRepo) => string[]) {
-    const shown = 12;
-    const lines = repos.slice(0, shown).map((repo) => `${repo.name}: ${names(repo).join(", ")}`);
-    if (repos.length > shown) {
-      lines.push(`…and ${plural(repos.length - shown, "more repository", "more repositories")}`);
-    }
-    return lines.join("\n");
-  }
-
   const sweepProgressLabel = computed(() => {
     if (!sweepingAll.value) {
       return "";
@@ -1433,15 +1425,13 @@ export function useApp() {
       }
       found.sort((a, b) => a.name.localeCompare(b.name));
       const total = found.reduce((sum, repo) => sum + repo.branches.length, 0);
-      const ok = await confirm(
-        `Delete ${plural(total, "merged local branch", "merged local branches")} across ${plural(found.length, "repository", "repositories")}?\n\n${sweepSummary(found, (repo) => repo.branches)}\n\nPartial and unique branches stay. This never deletes develop, main, master, or the current branch.`,
-        {
-          title: "Delete merged branches",
-          kind: "warning",
-          okLabel: "Delete",
-          cancelLabel: "Cancel",
-        },
-      );
+      const ok = await confirmBranches({
+        title: "Delete merged branches",
+        message: `Delete ${plural(total, "merged local branch", "merged local branches")} across ${plural(found.length, "repository", "repositories")}?`,
+        groups: found.map((repo) => ({ name: repo.name, branches: repo.branches })),
+        note: "Partial and unique branches stay. This never deletes develop, main, master, or the current branch.",
+        confirmLabel: "Delete",
+      });
       if (!ok) {
         return;
       }
@@ -1482,15 +1472,14 @@ export function useApp() {
       if (refused.length && !sweepCancelled.value) {
         refused.sort((a, b) => a.name.localeCompare(b.name));
         const count = refused.reduce((sum, repo) => sum + repo.branches.length, 0);
-        const forceOk = await confirm(
-          `Git would not safely delete ${plural(count, "branch", "branches")}. They are already contained in the integration branch, but not fully merged into the branch each repo is on (squash merges and unmerged remotes do this).\n\n${sweepSummary(refused, (repo) => repo.branches)}\n\nForce delete them?`,
-          {
-            title: "Force delete leftover branches",
-            kind: "warning",
-            okLabel: "Force delete",
-            cancelLabel: "Keep",
-          },
-        );
+        const forceOk = await confirmBranches({
+          title: "Force delete leftover branches",
+          message: `Git would not safely delete ${plural(count, "branch", "branches")}. Force delete them?`,
+          groups: refused.map((repo) => ({ name: repo.name, branches: repo.branches })),
+          note: "They are already contained in the integration branch, but not fully merged into the branch each repo is on (squash merges and unmerged remotes do this).",
+          confirmLabel: "Force delete",
+          cancelLabel: "Keep",
+        });
         if (forceOk) {
           await runPool(
             refused,

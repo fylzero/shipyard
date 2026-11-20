@@ -25,6 +25,7 @@ import TerminalPane from "./TerminalPane.vue";
 import WorkingTree from "./WorkingTree.vue";
 import { useApp } from "../composables/useApp";
 import { useCommitSearch } from "../composables/useCommitSearch";
+import { useBranchConfirm } from "../composables/useBranchConfirm";
 import * as api from "../api";
 import type {
   BranchOverview,
@@ -81,6 +82,7 @@ const {
   presentActionResults,
   repoDisplayName,
 } = useApp();
+const { confirmBranches } = useBranchConfirm();
 
 const commits = ref<CommitNode[]>([]);
 const files = ref<WorkingTreeFile[]>([]);
@@ -2850,15 +2852,17 @@ async function deleteMerged() {
     return;
   }
   const target = overview.value?.mergeTarget ?? "the integration branch";
-  const ok = await confirm(
-    `Delete ${count} leftover local ${count === 1 ? "branch" : "branches"} already merged into ${target}? Partial and unique branches stay. This never deletes develop, main, master, or the current branch.`,
-    {
-      title: "Delete merged branches",
-      kind: "warning",
-      okLabel: "Delete",
-      cancelLabel: "Cancel",
-    },
-  );
+  const victims =
+    overview.value?.branches
+      .filter((branch) => branch.merged && !branch.current && !branch.protected && !branch.pending)
+      .map((branch) => branch.name) ?? [];
+  const ok = await confirmBranches({
+    title: "Delete merged branches",
+    message: `Delete ${count} leftover local ${count === 1 ? "branch" : "branches"} already merged into ${target}?`,
+    groups: [{ name: "", branches: victims }],
+    note: "Partial and unique branches stay. This never deletes develop, main, master, or the current branch.",
+    confirmLabel: "Delete",
+  });
   if (!ok) {
     return;
   }
@@ -2869,10 +2873,6 @@ async function deleteMerged() {
   actionLabel.value = "Deleting merged branches…";
   message.value = "";
   try {
-    const victims =
-      overview.value?.branches
-        .filter((branch) => branch.merged && !branch.current && !branch.protected && !branch.pending)
-        .map((branch) => branch.name) ?? [];
     let result = await api.deleteMergedBranches(
       match.repo.path,
       preferredMergeTarget(),
@@ -2880,18 +2880,15 @@ async function deleteMerged() {
       victims,
     );
     if (result.refused.length) {
-      const refused = result.refused.join(", ");
-      const forceOk = await confirm(
-        result.deleted.length
-          ? `Deleted ${result.deleted.length}. Git would not safely delete ${refused}. Those branches are already contained in ${target}, but not fully merged into the branch you're on (squash merges and unmerged remotes do this). Force delete them?`
-          : `Git would not safely delete ${refused}. Those leftover branches are already contained in ${target}, but not fully merged into the branch you're on (squash merges and unmerged remotes do this). Force delete them?`,
-        {
-          title: "Force delete leftover branches",
-          kind: "warning",
-          okLabel: "Force delete",
-          cancelLabel: "Keep",
-        },
-      );
+      const refusedCount = result.refused.length;
+      const forceOk = await confirmBranches({
+        title: "Force delete leftover branches",
+        message: `${result.deleted.length ? `Deleted ${result.deleted.length}. ` : ""}Git would not safely delete ${refusedCount === 1 ? "this branch" : `these ${refusedCount} branches`}. Force delete ${refusedCount === 1 ? "it" : "them"}?`,
+        groups: [{ name: "", branches: result.refused }],
+        note: `Already contained in ${target}, but not fully merged into the branch you're on (squash merges and unmerged remotes do this).`,
+        confirmLabel: "Force delete",
+        cancelLabel: "Keep",
+      });
       if (forceOk) {
         const forced = await api.deleteMergedBranches(
           match.repo.path,
