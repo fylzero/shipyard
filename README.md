@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="app-icon.png" alt="Shipyard" width="160" height="160">
+  <img src="app-icon.png" alt="Shipyard" width="240" height="240">
 </p>
-
-<h1 align="center">Shipyard</h1>
 
 <p align="center">
   A fast, native-feeling, open source Git client for macOS, Windows, and Linux.
