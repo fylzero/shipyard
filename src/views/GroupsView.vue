@@ -433,8 +433,7 @@ async function cloneRepo() {
     <div class="groups-inner">
       <div class="groups-header">
         <div class="brand">
-          <img class="brand-icon" src="/app-icon.png" alt="" width="72" height="72" />
-          Shipyard
+          <img class="brand-icon" src="/app-icon.png" alt="Shipyard" width="154" height="144" />
         </div>
         <div v-if="hasRepos" class="groups-header-actions">
           <div class="header-action">

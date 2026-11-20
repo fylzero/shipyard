@@ -1572,9 +1572,9 @@ button.tab-tool.update:hover:not(:disabled) {
 }
 
 .brand-icon {
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 0.75rem;
+  /* artwork is wider than recon's; widen and crop empty top/bottom so it renders at the same height */
+  width: 9.6rem;
+  height: 9rem;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -1595,7 +1595,7 @@ button.tab-tool.update:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
 }
 
 .groups-display {

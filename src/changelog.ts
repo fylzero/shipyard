@@ -6,6 +6,14 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.1",
+    date: "November 19, 2026",
+    notes: [
+      "Shipyard has a new app icon: the raccoon at a laptop in a shipyard, with the Shipyard name and branch mark underneath.",
+      "The logo at the top of the Repositories screen is bigger and no longer has the name written next to it, since the name is part of the logo now.",
+    ],
+  },
+  {
     version: "1.21.0",
     date: "November 18, 2026",
     notes: [
