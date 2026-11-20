@@ -1544,6 +1544,12 @@ button.tab-tool.update:hover:not(:disabled) {
   font-weight: 600;
 }
 
+.tab .tab-label {
+  flex-shrink: 1;
+  min-width: 2.5rem;
+  max-width: 8rem;
+}
+
 .tab-close {
   border: 0;
   background: transparent;

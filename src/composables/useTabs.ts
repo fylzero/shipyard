@@ -23,6 +23,7 @@ type UtilityPanel = "settings" | "history" | "changelog";
 export interface AppTab {
   id: string;
   title: string;
+  label?: string;
   closable: boolean;
   accentColor?: string;
 }
@@ -60,6 +61,7 @@ export function useTabs() {
       return {
         id: tab.id,
         title: tab.title,
+        label: match?.repo.label?.trim() || undefined,
         closable: true,
         accentColor: match?.group?.headerColor || match?.repo.headerColor,
       };

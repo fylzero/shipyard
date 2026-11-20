@@ -138,6 +138,7 @@ onBeforeUnmount(endReorder);
         </svg>
         <RepoIcon v-else class="tab-icon" />
         <span class="tab-title">{{ tab.title }}</span>
+        <span v-if="tab.label" class="repo-label tab-label" :title="tab.label">{{ tab.label }}</span>
         <button
           v-if="tab.closable"
           class="tab-close"
