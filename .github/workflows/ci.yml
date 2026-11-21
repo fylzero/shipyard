@@ -30,6 +30,9 @@ jobs:
       - name: TypeScript type check and build
         run: bun run build
 
+      - name: Changelog has notes for this version
+        run: bun scripts/release-notes.ts > /dev/null
+
   backend:
     name: Backend Check
     runs-on: macos-latest
