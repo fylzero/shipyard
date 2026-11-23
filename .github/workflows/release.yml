@@ -179,8 +179,12 @@ jobs:
     # Runs after Linux and one architecture at a time for the same latest.json reason.
     # ARM64 is cross-compiled on the x64 runner, which has the MSVC ARM64 build tools.
     needs: linux
+    # Azure trusts this job's GitHub sign-in only from the `release` environment.
+    # See docs/windows-releases.md.
+    environment: release
     permissions:
       contents: write
+      id-token: write
     strategy:
       max-parallel: 1
       matrix:
@@ -192,6 +196,31 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
+
+      # Code signing runs only once AZURE_SIGNING_PROFILE is set, which needs an
+      # approved identity validation. Until then the installers stay unsigned.
+      - name: Setup .NET for code signing
+        if: vars.AZURE_SIGNING_PROFILE != ''
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Sign in to Azure for code signing
+        if: vars.AZURE_SIGNING_PROFILE != ''
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Set up code signing
+        if: vars.AZURE_SIGNING_PROFILE != ''
+        shell: pwsh
+        run: >-
+          ./scripts/setup-windows-signing.ps1
+          -Endpoint "${{ vars.AZURE_SIGNING_ENDPOINT }}"
+          -Account "${{ vars.AZURE_SIGNING_ACCOUNT }}"
+          -CertificateProfile "${{ vars.AZURE_SIGNING_PROFILE }}"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -238,5 +267,6 @@ jobs:
           releaseDraft: false
           prerelease: false
           uploadUpdaterJson: true
-          args: "--target ${{ matrix.target }} --bundles nsis"
+          # TAURI_SIGNING_ARGS comes from "Set up code signing", and is empty without it.
+          args: "--target ${{ matrix.target }} --bundles nsis ${{ env.TAURI_SIGNING_ARGS }}"
           releaseAssetNamePattern: "Shipyard-windows-${{ matrix.arch }}[ext]"

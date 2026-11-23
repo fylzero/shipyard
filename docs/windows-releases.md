@@ -1,9 +1,10 @@
 # Windows releases
 
 The Release workflow's `windows` job builds the Windows installers after the `linux`
-job succeeds and uploads them to the same GitHub release. It needs no secrets beyond
-the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` the other
-jobs already use.
+job succeeds and uploads them to the same GitHub release. Besides the
+`TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets the
+other jobs use, it reads the Azure code signing variables described under
+[Code signing](#code-signing).
 
 ## What gets published
 
@@ -28,16 +29,53 @@ The names stay the same from release to release, so the README links to
 
 ## Code signing
 
-The installers aren't code-signed. Windows SmartScreen shows **Windows protected
-your PC** the first time someone runs one, and they continue with **More info →
-Run anyway**. The warning appears less often as more people download a release.
+The installers are signed as **RazorKode LLC** with
+[Azure Artifact Signing](https://learn.microsoft.com/azure/artifact-signing/), the
+same publisher the macOS builds use. Signing turns on once the repository variable
+`AZURE_SIGNING_PROFILE` is set. Without it the job skips the signing steps and the
+installers ship unsigned, and Windows SmartScreen shows **Windows protected your
+PC** the first time someone runs one.
 
-To sign them later, the cheapest option is
-[Azure Trusted Signing](https://learn.microsoft.com/azure/trusted-signing/), at about
-$10 a month. Tauri runs a custom sign command for each binary it bundles. See
-[Tauri's Windows code signing guide](https://v2.tauri.app/distribute/sign/windows/)
-for the `bundle.windows.signCommand` setting and the secrets the job would need. A
-traditional OV or EV certificate works too, through `certificateThumbprint`.
+### How it works
+
+1. `azure/login` signs in to Azure with the job's GitHub OIDC token. There is no
+   client secret. The `Shipyard` app registration in the RazorKode LLC Microsoft Entra
+   directory trusts only this repository's `release` environment, which is why the
+   job sets `environment: release` and `id-token: write`.
+2. `scripts/setup-windows-signing.ps1` downloads Microsoft's signing client (the
+   SignTool "dlib", from the `Microsoft.ArtifactSigning.Client` NuGet package),
+   finds SignTool, and writes a Tauri config file that sets
+   `bundle.windows.signCommand`. The dlib needs the .NET 10 runtime, which
+   `actions/setup-dotnet` installs.
+3. `tauri-action` gets `--config <that file>`. Tauri then signs the app, the
+   uninstaller and the installer, each with a timestamp, before it writes the
+   updater `.sig` files. If SignTool fails, the build fails and nothing is uploaded.
+
+### Repository variables
+
+These live under **Settings → Secrets and variables → Actions → Variables**. None
+of them is secret.
+
+| Variable | Value |
+| --- | --- |
+| `AZURE_CLIENT_ID` | Application (client) ID of the `Shipyard` app registration |
+| `AZURE_TENANT_ID` | Directory (tenant) ID of the RazorKode LLC directory |
+| `AZURE_SIGNING_ENDPOINT` | `https://eus.codesigning.azure.net/` |
+| `AZURE_SIGNING_ACCOUNT` | `razorkode-signing` |
+| `AZURE_SIGNING_PROFILE` | The certificate profile's name. Leave it unset to ship unsigned. |
+
+The Artifact Signing account, its certificate profile, and the RazorKode LLC
+identity validation are shared by Lockshot, Recon and Shipyard. Each app has its
+own app registration with the **Artifact Signing Certificate Profile Signer** role
+on the account.
+
+### Checking a signed installer
+
+On Windows, right-click the installer, choose **Properties → Digital Signatures**,
+and confirm the signer is RazorKode LLC. In PowerShell,
+`Get-AuthenticodeSignature .\Shipyard-windows-x64.exe` should report `Valid`.
+SmartScreen can still warn for a while after the first signed release, until the
+publisher builds up download reputation.
 
 ## Updates
 
