@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import { CHANGELOG } from "../src/changelog";
 
 const DOWNLOADS = [
-  "macOS: download Shipyard-macos-arm64.dmg for Apple Silicon Macs.",
+  "macOS: download Shipyard-macos-arm64.dmg for Apple Silicon Macs, or run `brew install fylzero/tap/shipyard`.",
   "Linux: download Shipyard-linux-x64.AppImage, .deb, or .rpm for Intel and AMD PCs, or the Shipyard-linux-arm64 files for ARM.",
   "Windows: download Shipyard-windows-x64.exe for Intel and AMD PCs, or Shipyard-windows-arm64.exe for ARM.",
   "The Windows installer isn't code-signed yet, so SmartScreen may warn: click More info, then Run anyway.",

@@ -92,6 +92,14 @@ Shipyard is designed for developers who manage multiple repositories and want a 
 2. Open the DMG and drag Shipyard to your Applications folder
 3. Launch Shipyard from Applications
 
+Or install it with [Homebrew](https://brew.sh):
+
+```sh
+brew install fylzero/tap/shipyard
+```
+
+Shipyard updates itself, so Homebrew leaves upgrades to it. If Shipyard is already in Applications, add `--force` so Homebrew takes it over.
+
 ### Installation on Windows
 
 1. Download the latest installer: [Shipyard-windows-x64.exe](https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-x64.exe), or [Shipyard-windows-arm64.exe](https://github.com/fylzero/shipyard/releases/latest/download/Shipyard-windows-arm64.exe) on ARM PCs like Snapdragon laptops
