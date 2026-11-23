@@ -1684,6 +1684,18 @@ button.tab-tool.update:hover:not(:disabled) {
   flex-shrink: 0;
 }
 
+.brand-icon.brand-light,
+:root[data-theme="light"] .brand-icon.brand-dark {
+  display: none;
+}
+
+/* the app icon tile is square with its own margin, so show it whole */
+:root[data-theme="light"] .brand-icon.brand-light {
+  display: block;
+  width: 9rem;
+  object-fit: contain;
+}
+
 .groups-page {
   height: 100%;
   overflow: auto;
@@ -1787,6 +1799,11 @@ button.tab-tool.update:hover:not(:disabled) {
      row down by the same amount regardless of button height */
   align-self: stretch;
   padding-top: 4.25rem;
+}
+
+/* on the light theme's app icon tile the wordmark sits ~1.5rem below center */
+:root[data-theme="light"] .groups-header-actions {
+  padding-top: 3rem;
 }
 
 .groups-header-actions button {

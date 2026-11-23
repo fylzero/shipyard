@@ -433,7 +433,10 @@ async function cloneRepo() {
     <div class="groups-inner">
       <div class="groups-header">
         <div class="brand">
-          <img class="brand-icon" src="/app-icon.png" alt="Shipyard" width="154" height="144" />
+          <!-- The emblem is drawn for a dark background; in light mode show it
+               on its own dark tile (the macOS app icon) instead. -->
+          <img class="brand-icon brand-dark" src="/app-icon.png" alt="Shipyard" width="154" height="144" />
+          <img class="brand-icon brand-light" src="/app-icon-light.png" alt="Shipyard" width="144" height="144" />
         </div>
         <div v-if="hasRepos" class="groups-header-actions">
           <div class="header-action">
