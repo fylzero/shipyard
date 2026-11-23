@@ -6,17 +6,11 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: "1.21.7",
+    version: "1.21.6",
     date: "November 22, 2026",
     notes: [
-      "In the light theme, the logo on the Repositories screen sits on its dark rounded tile, so it no longer shows rough dark edges and pale lettering on the light background.",
-    ],
-  },
-  {
-    version: "1.21.6",
-    date: "November 20, 2026",
-    notes: [
       "Toast messages use a solid green or red background that looks the same in light and dark themes, matching Lockshot and Recon.",
+      "In the light theme, the logo on the Repositories screen sits on its dark rounded tile, so it no longer shows rough dark edges and pale lettering on the light background.",
     ],
   },
   {
