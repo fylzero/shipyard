@@ -7,7 +7,8 @@ on:
       - "v*"
 
 # The release body comes from src/changelog.ts (the in-app Changelog) through
-# scripts/release-notes.ts, which also adds the download instructions. A version
+# scripts/release-notes.ts, which also adds the download instructions. The body
+# covers every changelog version since the last published release. A version
 # without a changelog entry fails at the Release notes step, before building.
 
 jobs:
@@ -46,10 +47,15 @@ jobs:
 
       - name: Release notes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # Notes cover every version since the last published release, so a
+          # version that was bumped but never tagged still gets its notes.
+          since=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 20 --json tagName -q '.[].tagName' | grep -vx "$GITHUB_REF_NAME" | head -1 || true)
           {
             echo "RELEASE_NOTES<<__RELEASE_NOTES__"
-            bun scripts/release-notes.ts
+            bun scripts/release-notes.ts ${since:+--since "$since"}
             echo "__RELEASE_NOTES__"
           } >> "$GITHUB_ENV"
 
@@ -131,10 +137,15 @@ jobs:
 
       - name: Release notes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # Notes cover every version since the last published release, so a
+          # version that was bumped but never tagged still gets its notes.
+          since=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 20 --json tagName -q '.[].tagName' | grep -vx "$GITHUB_REF_NAME" | head -1 || true)
           {
             echo "RELEASE_NOTES<<__RELEASE_NOTES__"
-            bun scripts/release-notes.ts
+            bun scripts/release-notes.ts ${since:+--since "$since"}
             echo "__RELEASE_NOTES__"
           } >> "$GITHUB_ENV"
 
@@ -187,10 +198,15 @@ jobs:
 
       - name: Release notes
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # Notes cover every version since the last published release, so a
+          # version that was bumped but never tagged still gets its notes.
+          since=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --limit 20 --json tagName -q '.[].tagName' | grep -vx "$GITHUB_REF_NAME" | head -1 || true)
           {
             echo "RELEASE_NOTES<<__RELEASE_NOTES__"
-            bun scripts/release-notes.ts
+            bun scripts/release-notes.ts ${since:+--since "$since"}
             echo "__RELEASE_NOTES__"
           } >> "$GITHUB_ENV"
 

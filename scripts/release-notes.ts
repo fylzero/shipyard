@@ -3,6 +3,9 @@
 //
 //   bun scripts/release-notes.ts            # version from src-tauri/tauri.conf.json
 //   bun scripts/release-notes.ts 1.2.0      # a specific version
+//   bun scripts/release-notes.ts --since v1.1.0
+//                                           # also every version after 1.1.0, for
+//                                           # versions bumped but never released
 //
 // Exits with an error when the changelog has no entry for the version, so a
 // release can't go out without its notes.
@@ -22,7 +25,21 @@ function configVersion(): string {
   return JSON.parse(readFileSync(url, "utf8")).version;
 }
 
-const version = (process.argv[2] ?? configVersion()).replace(/^v/, "");
+const args = process.argv.slice(2);
+const sinceIndex = args.indexOf("--since");
+const since = sinceIndex >= 0 ? args.splice(sinceIndex, 2)[1]?.replace(/^v/, "") : undefined;
+const version = (args[0] ?? configVersion()).replace(/^v/, "");
+
+function compare(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
 const release = CHANGELOG.find((r) => r.version === version);
 
 if (!release || release.notes.length === 0) {
@@ -30,10 +47,27 @@ if (!release || release.notes.length === 0) {
   process.exit(1);
 }
 
+// This version plus any between it and the last published release, newest first.
+const releases = CHANGELOG.filter(
+  (r) =>
+    r.version === version ||
+    (since !== undefined && compare(r.version, since) > 0 && compare(r.version, version) < 0),
+).sort((a, b) => compare(b.version, a.version));
+
+const whatsNew =
+  releases.length === 1
+    ? release.notes.map((note) => `- ${note}`)
+    : releases.flatMap((r, i) => [
+        ...(i > 0 ? [""] : []),
+        `### ${r.version}`,
+        "",
+        ...r.notes.map((note) => `- ${note}`),
+      ]);
+
 const body = [
   "## What's new",
   "",
-  ...release.notes.map((note) => `- ${note}`),
+  ...whatsNew,
   "",
   "## Download",
   "",
