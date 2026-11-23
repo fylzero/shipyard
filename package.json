@@ -1,7 +1,7 @@
 {
   "name": "shipyard",
   "private": true,
-  "version": "1.21.6",
+  "version": "1.21.7",
   "license": "MIT",
   "type": "module",
   "scripts": {

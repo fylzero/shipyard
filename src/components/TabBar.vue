@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from "vue";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import {
   CHANGELOG_TAB_ID,
   GROUPS_TAB_ID,
@@ -8,6 +9,7 @@ import {
   useTabs,
 } from "../composables/useTabs";
 import { useUpdater } from "../composables/useUpdater";
+import { isMac } from "../platform";
 import RepoIcon from "./RepoIcon.vue";
 
 const { tabs, activeId, activate, closeRepo, openHistory, openSettings, isReorderable, moveTab } =
@@ -72,12 +74,41 @@ function endReorder() {
   window.removeEventListener("pointercancel", endReorder);
 }
 
-onBeforeUnmount(endReorder);
+/**
+ * On macOS the window buttons sit over the left of the tab bar, so the bar
+ * leaves room for them, except in full screen, where macOS hides them.
+ */
+const fullscreen = ref(false);
+let stopWatchingResize: (() => void) | null = null;
+
+async function syncFullscreen() {
+  fullscreen.value = await getCurrentWindow().isFullscreen().catch(() => false);
+}
+
+onMounted(async () => {
+  if (!isMac) {
+    return;
+  }
+  await syncFullscreen();
+  stopWatchingResize = await getCurrentWindow().onResized(syncFullscreen).catch(() => null);
+});
+
+onBeforeUnmount(() => {
+  endReorder();
+  stopWatchingResize?.();
+  stopWatchingResize = null;
+});
 </script>
 
 <template>
-  <div class="tab-bar" role="tablist" aria-label="Open views">
-    <div ref="tabList" class="tab-list" :class="{ reordering: draggingId }">
+  <div class="tab-bar" role="tablist" aria-label="Open views" data-tauri-drag-region>
+    <div v-if="isMac && !fullscreen" class="window-controls-space" data-tauri-drag-region />
+    <div
+      ref="tabList"
+      class="tab-list"
+      :class="{ reordering: draggingId }"
+      data-tauri-drag-region
+    >
       <div
         v-for="tab in tabs"
         :key="tab.id"

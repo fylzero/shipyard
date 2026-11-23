@@ -1519,6 +1519,11 @@ button.destructive:focus-visible {
   user-select: none;
 }
 
+.window-controls-space {
+  flex: 0 0 84px;
+  border-right: 1px solid var(--border);
+}
+
 .tab-list {
   display: flex;
   flex: 1;
