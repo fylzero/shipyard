@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.9",
+    date: "November 23, 2026",
+    notes: [
+      "On macOS, Shipyard has a new icon in the Dock and the Command-Tab switcher, so it's easier to tell apart from Dispatch, Lockshot, and Recon at a glance. The logo inside the app and everywhere else is unchanged.",
+    ],
+  },
+  {
     version: "1.21.8",
     date: "November 23, 2026",
     notes: [
