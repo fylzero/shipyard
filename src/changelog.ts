@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.8",
+    date: "November 23, 2026",
+    notes: [
+      "The GitHub link and the version number moved from the bottom of the window into the tab bar, next to the settings gear, and the bar along the bottom is gone, giving the panes that space back. Click the version to open the Change Log, as before. The countdown to the next auto-fetch now sits beside the Fetch button on the Groups page; hover over it to see when the last fetch ran.",
+    ],
+  },
+  {
     version: "1.21.7",
     date: "November 23, 2026",
     notes: [

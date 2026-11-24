@@ -55,7 +55,17 @@ const {
   busy,
   repoDisplayName,
   showToast,
+  countdownLabel,
+  lastRefreshAt,
 } = useApp();
+
+const lastFetchTitle = computed(() => {
+  if (!lastRefreshAt.value) {
+    return "No fetch yet";
+  }
+  const time = lastRefreshAt.value.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return `Last fetch ${time}`;
+});
 const { hasTab, closeRepos } = useTabs();
 const creating = ref(false);
 
@@ -444,6 +454,9 @@ async function cloneRepo() {
               <span class="spinner" aria-hidden="true" />
               {{ refreshAllProgress }}
             </span>
+            <span v-else-if="countdownLabel" class="action-countdown" :title="lastFetchTitle">{{
+              countdownLabel
+            }}</span>
             <button
               type="button"
               :class="{ danger: refreshingAll }"

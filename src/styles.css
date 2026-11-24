@@ -238,82 +238,10 @@ button.commit.has-draft::after {
   height: 100%;
 }
 
-.status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex: 0 0 auto;
-  min-height: 1.55rem;
-  padding: 0 0.7rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-deep);
-  color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.status-bar-start {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
-.status-bar-fetch {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: default;
-}
-
-.status-bar-version,
-.status-bar-github {
-  appearance: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-
-.status-bar-github {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.status-bar-github svg {
-  display: block;
-  width: 12px;
-  height: 12px;
-}
-
-.status-bar-version-prefix {
-  opacity: 0.55;
-}
-
-.status-bar-version {
-  flex-shrink: 0;
-}
-
-.status-bar-version:hover:not(:disabled),
-.status-bar-version.active,
-.status-bar-github:hover:not(:disabled) {
-  background: transparent;
-  color: var(--text);
-}
-
 .toast-layer {
   position: fixed;
   left: 0.75rem;
-  bottom: calc(1.55rem + 0.6rem);
+  bottom: 0.75rem;
   z-index: 60;
   display: flex;
   pointer-events: none;
@@ -1577,6 +1505,49 @@ button.tab-tool.update:hover:not(:disabled) {
   stroke-linejoin: round;
 }
 
+/* The version sits as text among the tab tools. */
+.tab-version,
+button.tab-version:hover:not(:disabled),
+button.tab-version:active {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+button.tab-version:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.tab-version.active,
+button.tab-version.active:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.tab-version-prefix {
+  opacity: 0.55;
+}
+
+.tab-tool svg.tab-tool-github {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
+  stroke: none;
+}
+
 .tab {
   display: flex;
   align-items: center;
@@ -2081,6 +2052,14 @@ button.chevron:active {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.action-countdown {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
 }
 
 .action-progress {
