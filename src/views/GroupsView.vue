@@ -448,92 +448,6 @@ async function cloneRepo() {
           <img class="brand-icon brand-dark" src="/app-icon.png" alt="Shipyard" width="154" height="144" />
           <img class="brand-icon brand-light" src="/app-icon-light.png" alt="Shipyard" width="144" height="144" />
         </div>
-        <div v-if="hasRepos" class="groups-header-actions">
-          <div class="header-action">
-            <span v-if="refreshingAll" class="action-progress">
-              <span class="spinner" aria-hidden="true" />
-              {{ refreshAllProgress }}
-            </span>
-            <span v-else-if="countdownLabel" class="action-countdown" :title="lastFetchTitle">{{
-              countdownLabel
-            }}</span>
-            <button
-              type="button"
-              :class="{ danger: refreshingAll }"
-              :disabled="!hasRepos || refreshCancelled || pullingAll || sweepingAll"
-                :title="refreshingAll ? undefined : 'Fetch every repository'"
-              @click="refreshingAll ? cancelRefresh() : refreshAll()"
-            >
-              <svg
-                v-if="!refreshingAll"
-                class="button-icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
-                />
-              </svg>
-              {{ refreshCancelled ? "Cancelling…" : refreshingAll ? "Cancel" : "Fetch" }}
-            </button>
-          </div>
-          <div class="header-action">
-            <span v-if="pullingAll" class="action-progress">
-              <span class="spinner" aria-hidden="true" />
-              {{ pullAllProgress }}
-            </span>
-            <button
-              type="button"
-              :class="{ danger: pullingAll }"
-              :disabled="!canStartPullAll"
-              :title="pullingAll ? undefined : 'Pull the current branch for every repository'"
-              @click="pullingAll ? cancelPullAll() : pullAll()"
-            >
-              <svg
-                v-if="!pullingAll"
-                class="button-icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-                />
-              </svg>
-              {{ pullAllCancelled ? "Cancelling…" : pullingAll ? "Cancel" : "Pull" }}
-            </button>
-          </div>
-          <div class="header-action">
-            <span v-if="sweepingAll" class="action-progress">
-              <span class="spinner" aria-hidden="true" />
-              {{ sweepProgress }}
-            </span>
-            <button
-              type="button"
-              :class="{ danger: sweepingAll }"
-              :disabled="!canStartSweep && !sweepingAll"
-              :title="sweepingAll ? undefined : 'Delete merged branches in every repository'"
-              @click="sweepingAll ? cancelSweep() : sweepMergedBranches()"
-            >
-              <svg
-                v-if="!sweepingAll"
-                class="button-icon"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
-                />
-              </svg>
-              {{ sweepCancelled ? "Cancelling…" : sweepingAll ? "Cancel" : "Delete merged branches" }}
-              <span v-if="!sweepingAll && mergedBranchTotal" class="file-count-badge">{{
-                mergedBranchTotal
-              }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="groups-display">
         <div class="groups-toolbar">
           <div class="toolbar-start">
             <button class="primary" type="button" @click="pickStandaloneRepo">Add repository</button>
@@ -547,75 +461,162 @@ async function cloneRepo() {
               New group
             </button>
           </div>
-          <div class="toolbar-end">
-            <span v-if="filtering" class="muted tiny groups-search-count">
-              {{ visibleRepoCount }} of {{ totalRepoCount }}
-            </span>
-            <label v-if="showSearch" class="groups-search-field">
-              <span class="sr-only">Filter repositories</span>
-              <svg class="branch-search-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-                />
-              </svg>
-              <input
-                ref="searchInput"
-                v-model="query"
-                type="text"
-                placeholder="Filter repositories"
-                autocapitalize="off"
-                autocorrect="off"
-                autocomplete="off"
-                spellcheck="false"
-                @keydown="onSearchKeydown"
-              />
-              <button
-                v-if="query"
-                class="file-tree-clear"
-                type="button"
-                title="Clear search"
-                @click="clearSearch"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 18 18 6M6 6l12 12" />
+          <div class="toolbar-stack">
+            <div v-if="hasRepos" class="groups-header-actions">
+              <div class="header-action">
+                <span v-if="refreshingAll" class="action-progress">
+                  <span class="spinner" aria-hidden="true" />
+                  {{ refreshAllProgress }}
+                </span>
+                <span v-else-if="countdownLabel" class="action-countdown" :title="lastFetchTitle">{{
+                  countdownLabel
+                }}</span>
+                <button
+                  type="button"
+                  :class="{ danger: refreshingAll }"
+                  :disabled="!hasRepos || refreshCancelled || pullingAll || sweepingAll"
+                    :title="refreshingAll ? undefined : 'Fetch every repository'"
+                  @click="refreshingAll ? cancelRefresh() : refreshAll()"
+                >
+                  <svg
+                    v-if="!refreshingAll"
+                    class="button-icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 9.75v6.75m0 0-3-3m3 3 3-3m-8.25 6a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z"
+                    />
+                  </svg>
+                  {{ refreshCancelled ? "Cancelling…" : refreshingAll ? "Cancel" : "Fetch" }}
+                </button>
+              </div>
+              <div class="header-action">
+                <span v-if="pullingAll" class="action-progress">
+                  <span class="spinner" aria-hidden="true" />
+                  {{ pullAllProgress }}
+                </span>
+                <button
+                  type="button"
+                  :class="{ danger: pullingAll }"
+                  :disabled="!canStartPullAll"
+                  :title="pullingAll ? undefined : 'Pull the current branch for every repository'"
+                  @click="pullingAll ? cancelPullAll() : pullAll()"
+                >
+                  <svg
+                    v-if="!pullingAll"
+                    class="button-icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+                    />
+                  </svg>
+                  {{ pullAllCancelled ? "Cancelling…" : pullingAll ? "Cancel" : "Pull" }}
+                </button>
+              </div>
+              <div class="header-action">
+                <span v-if="sweepingAll" class="action-progress">
+                  <span class="spinner" aria-hidden="true" />
+                  {{ sweepProgress }}
+                </span>
+                <button
+                  type="button"
+                  :class="{ danger: sweepingAll }"
+                  :disabled="!canStartSweep && !sweepingAll"
+                  :title="sweepingAll ? undefined : 'Delete merged branches in every repository'"
+                  @click="sweepingAll ? cancelSweep() : sweepMergedBranches()"
+                >
+                  <svg
+                    v-if="!sweepingAll"
+                    class="button-icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"
+                    />
+                  </svg>
+                  {{ sweepCancelled ? "Cancelling…" : sweepingAll ? "Cancel" : "Delete merged branches" }}
+                  <span v-if="!sweepingAll && mergedBranchTotal" class="file-count-badge">{{
+                    mergedBranchTotal
+                  }}</span>
+                </button>
+              </div>
+            </div>
+            <div class="toolbar-end">
+              <span v-if="filtering" class="muted tiny groups-search-count">
+                {{ visibleRepoCount }} of {{ totalRepoCount }}
+              </span>
+              <label v-if="showSearch" class="groups-search-field">
+                <span class="sr-only">Filter repositories</span>
+                <svg class="branch-search-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                  />
                 </svg>
+                <input
+                  ref="searchInput"
+                  v-model="query"
+                  type="text"
+                  placeholder="Filter repositories"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  autocomplete="off"
+                  spellcheck="false"
+                  @keydown="onSearchKeydown"
+                />
+                <button
+                  v-if="query"
+                  class="file-tree-clear"
+                  type="button"
+                  title="Clear search"
+                  @click="clearSearch"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </label>
+              <button
+                v-if="hasGroups"
+                class="ghost"
+                type="button"
+                :disabled="!canExpandAll"
+                @click="setAllGroupsExpanded(true)"
+              >
+                <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19.5 5.25 12 12.75 4.5 5.25m15 6L12 18.75l-7.5-7.5" />
+                </svg>
+                Expand
               </button>
-            </label>
-            <button
-              v-if="hasGroups"
-              class="ghost"
-              type="button"
-              :disabled="!canExpandAll"
-              @click="setAllGroupsExpanded(true)"
-            >
-              <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M19.5 5.25 12 12.75 4.5 5.25m15 6L12 18.75l-7.5-7.5" />
-              </svg>
-              Expand
-            </button>
-            <button
-              v-if="hasGroups"
-              class="ghost"
-              type="button"
-              :disabled="!canCollapseAll"
-              @click="setAllGroupsExpanded(false)"
-            >
-              <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m4.5 18.75 7.5-7.5 7.5 7.5m-15-6 7.5-7.5 7.5 7.5" />
-              </svg>
-              Collapse
-            </button>
-            <button
-              class="ghost"
-              type="button"
-              :disabled="!canSortAlpha"
-              @click="sortAlphabetically"
-            >
-              Sort A–Z
-            </button>
+              <button
+                v-if="hasGroups"
+                class="ghost"
+                type="button"
+                :disabled="!canCollapseAll"
+                @click="setAllGroupsExpanded(false)"
+              >
+                <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m4.5 18.75 7.5-7.5 7.5 7.5m-15-6 7.5-7.5 7.5 7.5" />
+                </svg>
+                Collapse
+              </button>
+              <button
+                class="ghost"
+                type="button"
+                :disabled="!canSortAlpha"
+                @click="sortAlphabetically"
+              >
+                Sort A–Z
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
+      <div class="groups-display">
         <p v-if="isEmpty && !creating" class="muted">
           Add a repository, or create a group for several at once.
         </p>

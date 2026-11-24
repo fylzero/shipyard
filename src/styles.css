@@ -1683,12 +1683,13 @@ button.tab-version.active:hover:not(:disabled) {
   margin: 0 auto;
 }
 
+/* the toolbar shares the logo's row, bottom-aligned with its wordmark,
+   so the list starts right under the logo */
 .groups-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-end;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .groups-display {
@@ -1700,11 +1701,19 @@ button.tab-version.active:hover:not(:disabled) {
 
 .groups-toolbar {
   display: flex;
+  flex: 1 1 0;
+  min-width: 0;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  width: 100%;
   gap: 0.75rem 1rem;
+  /* lift the bottom row so it centers on the logo's wordmark, which sits
+     ~2.1rem below the icon's center (~1.5rem on the light theme's tile) */
+  padding-bottom: 1.4rem;
+}
+
+:root[data-theme="light"] .groups-toolbar {
+  padding-bottom: 2rem;
 }
 
 .toolbar-start,
@@ -1763,23 +1772,20 @@ button.tab-version.active:hover:not(:disabled) {
   box-sizing: border-box;
 }
 
+.toolbar-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-left: auto;
+}
+
 .groups-header-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  align-content: center;
   justify-content: flex-end;
   gap: 0.45rem;
-  /* line the buttons up with the Shipyard wordmark in the logo, which sits
-     ~2.1rem below the icon's center; padding twice that shifts the centered
-     row down by the same amount regardless of button height */
-  align-self: stretch;
-  padding-top: 4.25rem;
-}
-
-/* on the light theme's app icon tile the wordmark sits ~1.5rem below center */
-:root[data-theme="light"] .groups-header-actions {
-  padding-top: 3rem;
 }
 
 .groups-header-actions button {

@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.10",
+    date: "November 23, 2026",
+    notes: [
+      "On the Repositories page, Add repository, Clone repository, New group, the filter, and Sort A–Z moved up beside the logo, lined up with its wordmark, with Fetch, Pull, and Delete merged branches in a row above the filter. The list now starts right under the logo instead of below an empty band.",
+    ],
+  },
+  {
     version: "1.21.9",
     date: "November 23, 2026",
     notes: [
