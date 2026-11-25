@@ -19,6 +19,8 @@ const {
   saveEditor,
   notifications,
   saveNotifications,
+  autoCheckUpdates,
+  saveAutoCheckUpdates,
   saveRefreshInterval,
   showToast,
 } = useApp();
@@ -35,6 +37,14 @@ async function onRefreshInterval(event: Event) {
 async function onDiffMode(mode: DiffMode) {
   try {
     await saveDiffMode(mode);
+  } catch (err) {
+    showToast(String(err), "error");
+  }
+}
+
+async function onAutoCheckUpdates() {
+  try {
+    await saveAutoCheckUpdates(!autoCheckUpdates.value);
   } catch (err) {
     showToast(String(err), "error");
   }
@@ -120,6 +130,29 @@ async function resetFilesPaneWidth() {
               </option>
             </select>
           </label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-copy">
+            <h3>Check for updates automatically</h3>
+            <p class="muted tiny">
+              Looks for a new version when Shipyard starts and every few hours. You get a notification
+              when one is ready, and Shipyard asks before installing it.
+            </p>
+          </div>
+          <button
+            class="history-switch"
+            :class="{ on: autoCheckUpdates }"
+            type="button"
+            role="switch"
+            :aria-checked="autoCheckUpdates"
+            aria-label="Check for updates automatically"
+            @click="onAutoCheckUpdates"
+          >
+            <span class="history-switch-track" aria-hidden="true">
+              <span class="history-switch-knob" />
+            </span>
+            {{ autoCheckUpdates ? "On" : "Off" }}
+          </button>
         </div>
         <div class="settings-row">
           <div class="settings-row-copy">

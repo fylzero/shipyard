@@ -384,6 +384,18 @@ pub fn update_notifications(
 }
 
 #[tauri::command]
+pub fn update_auto_check_updates(
+    app: AppHandle,
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<bool, String> {
+    let mut data = state.data.lock().map_err(|err| err.to_string())?;
+    data.auto_check_updates = enabled;
+    persist_data(&app, &data)?;
+    Ok(enabled)
+}
+
+#[tauri::command]
 pub fn update_theme(
     app: AppHandle,
     state: State<AppState>,

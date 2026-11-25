@@ -66,6 +66,7 @@ pub fn run() {
             commands::update_terminal_font_size,
             commands::update_editor,
             commands::update_notifications,
+            commands::update_auto_check_updates,
             commands::update_theme,
             commands::update_refresh_active_hours,
             window_state::get_window_state,

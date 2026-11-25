@@ -68,6 +68,7 @@ const terminalFontFamily = ref(DEFAULT_CODE_FONT);
 const terminalFontSize = ref(DEFAULT_TERMINAL_FONT_SIZE);
 const editor = ref("system");
 const notifications = ref<NotificationMode>("background");
+const autoCheckUpdates = ref(true);
 const windowState = ref<WindowState | null>(null);
 const FILES_PANE_MIN = 220;
 const FILES_PANE_MAX = 800;
@@ -196,6 +197,7 @@ export function useApp() {
     );
     editor.value = data.editor?.trim() || "system";
     notifications.value = sanitizeNotificationMode(data.notifications);
+    autoCheckUpdates.value = data.autoCheckUpdates ?? true;
     windowState.value = data.window ?? null;
   }
 
@@ -819,6 +821,10 @@ export function useApp() {
     if (notifications.value !== "off") {
       void ensureNotificationPermission();
     }
+  }
+
+  async function saveAutoCheckUpdates(enabled: boolean) {
+    autoCheckUpdates.value = await api.updateAutoCheckUpdates(enabled);
   }
 
   async function saveEditor(next: string) {
@@ -1857,6 +1863,8 @@ export function useApp() {
     saveEditor,
     notifications,
     saveNotifications,
+    autoCheckUpdates,
+    saveAutoCheckUpdates,
     theme: themePreference,
     saveTheme,
     windowState,

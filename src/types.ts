@@ -68,6 +68,8 @@ export interface AppData {
   terminalFontSize?: number;
   editor?: string;
   notifications?: NotificationMode;
+  /** Look for a new release at launch and every few hours, and say when one is ready. */
+  autoCheckUpdates?: boolean;
   refreshActiveHours?: RefreshActiveHours;
   window?: WindowState;
 }

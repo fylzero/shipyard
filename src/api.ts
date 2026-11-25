@@ -155,6 +155,10 @@ export function updateNotifications(mode: NotificationMode) {
   return invoke<NotificationMode>("update_notifications", { mode });
 }
 
+export function updateAutoCheckUpdates(enabled: boolean) {
+  return invoke<boolean>("update_auto_check_updates", { enabled });
+}
+
 export function updateTheme(theme: ThemePreference) {
   return invoke<ThemePreference>("update_theme", { theme });
 }

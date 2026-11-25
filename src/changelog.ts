@@ -6,6 +6,17 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.22.0",
+    date: "November 25, 2026",
+    notes: [
+      "Shipyard checks for updates on its own: when it starts and every few hours after. When a new version is ready, the update icon appears in the tab bar and Shipyard asks whether to install it. Nothing installs without your OK.",
+      "If an update turns up while Shipyard is in the background, you get a system notification, and the install prompt opens when you come back to it.",
+      "An update found while you're working doesn't interrupt you. The tab bar icon appears right away, and the prompt waits until you next come back to the window.",
+      "Turn this off with Check for updates automatically in General settings. Check for Updates… in the menu still works either way.",
+      "Later is remembered across restarts. Automatic checks wait a day before asking about that version again, while Check for Updates… always asks.",
+    ],
+  },
+  {
     version: "1.21.13",
     date: "November 24, 2026",
     notes: [

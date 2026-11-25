@@ -32,6 +32,10 @@ pub fn sanitize_notifications(value: &str) -> String {
     }
 }
 
+fn default_auto_check_updates() -> bool {
+    true
+}
+
 fn default_theme() -> String {
     "system".into()
 }
@@ -244,6 +248,10 @@ pub struct AppData {
     /// When to use system notifications: "background", "always", or "off".
     #[serde(default = "default_notifications")]
     pub notifications: String,
+    /// Look for a new release at launch and every few hours, and say when one
+    /// is ready to install.
+    #[serde(default = "default_auto_check_updates")]
+    pub auto_check_updates: bool,
     #[serde(default)]
     pub refresh_active_hours: RefreshActiveHours,
     #[serde(default)]
@@ -267,6 +275,7 @@ impl Default for AppData {
             terminal_font_size: default_terminal_font_size(),
             editor: default_editor(),
             notifications: default_notifications(),
+            auto_check_updates: default_auto_check_updates(),
             refresh_active_hours: RefreshActiveHours::default(),
             window: None,
         }
@@ -336,6 +345,7 @@ mod tests {
             terminal_font_size: 14.0,
             editor: "system".into(),
             notifications: "background".into(),
+            auto_check_updates: true,
             refresh_active_hours: RefreshActiveHours::default(),
             window: None,
             repos: Vec::new(),
@@ -366,6 +376,7 @@ mod tests {
         assert_eq!(parsed.refresh_active_hours.end, "18:00");
         assert_eq!(parsed.editor, "system");
         assert_eq!(parsed.notifications, "background");
+        assert!(parsed.auto_check_updates);
         assert_eq!(parsed.diff_font_family, "jetbrains");
         assert_eq!(parsed.diff_font_size, 13.0);
         assert_eq!(parsed.terminal_font_family, "jetbrains");
