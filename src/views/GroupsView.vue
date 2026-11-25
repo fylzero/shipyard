@@ -56,6 +56,7 @@ const {
   repoDisplayName,
   showToast,
   countdownLabel,
+  countdownShort,
   lastRefreshAt,
 } = useApp();
 
@@ -66,6 +67,10 @@ const lastFetchTitle = computed(() => {
   const time = lastRefreshAt.value.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   return `Last fetch ${time}`;
 });
+
+const fetchAllTitle = computed(() =>
+  ["Fetch every repository", countdownLabel.value, lastFetchTitle.value].filter(Boolean).join("\n"),
+);
 const { hasTab, closeRepos } = useTabs();
 const creating = ref(false);
 
@@ -468,14 +473,11 @@ async function cloneRepo() {
                   <span class="spinner" aria-hidden="true" />
                   {{ refreshAllProgress }}
                 </span>
-                <span v-else-if="countdownLabel" class="action-countdown" :title="lastFetchTitle">{{
-                  countdownLabel
-                }}</span>
                 <button
                   type="button"
                   :class="{ danger: refreshingAll }"
                   :disabled="!hasRepos || refreshCancelled || pullingAll || sweepingAll"
-                    :title="refreshingAll ? undefined : 'Fetch every repository'"
+                  :title="refreshingAll ? undefined : fetchAllTitle"
                   @click="refreshingAll ? cancelRefresh() : refreshAll()"
                 >
                   <svg
@@ -489,6 +491,9 @@ async function cloneRepo() {
                     />
                   </svg>
                   {{ refreshCancelled ? "Cancelling…" : refreshingAll ? "Cancel" : "Fetch" }}
+                  <span v-if="!refreshingAll && countdownShort" class="action-countdown">{{
+                    countdownShort
+                  }}</span>
                 </button>
               </div>
               <div class="header-action">

@@ -2061,11 +2061,12 @@ button.chevron:active {
 }
 
 .action-countdown {
+  margin-left: 0.15rem;
   color: var(--muted);
   font-size: 12px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  cursor: default;
 }
 
 .action-progress {

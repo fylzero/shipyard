@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.21.13",
+    date: "November 24, 2026",
+    notes: [
+      "On the Repositories page, the countdown to the next auto-fetch now sits inside the Fetch button, after its label, instead of beside it. Hover over the button to see the full countdown and when the last fetch ran.",
+    ],
+  },
+  {
     version: "1.21.12",
     date: "November 23, 2026",
     notes: [

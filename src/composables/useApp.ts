@@ -906,6 +906,15 @@ export function useApp() {
     return `Next fetch in ${minutes}:${String(seconds).padStart(2, "0")}`;
   });
 
+  // Compact form of countdownLabel, small enough to sit inside the Fetch button.
+  const countdownShort = computed(() => {
+    const label = countdownLabel.value;
+    if (!label) {
+      return "";
+    }
+    return autoRefreshPaused.value ? "Paused" : label.replace(/^Next fetch in\s+/, "");
+  });
+
   async function createGroup(name: string) {
     const group = await api.createGroup(name);
     groups.value = [group, ...groups.value];
@@ -1856,6 +1865,7 @@ export function useApp() {
     refreshingAll,
     lastRefreshAt,
     countdownLabel,
+    countdownShort,
     refreshProgressLabel,
     refreshCancelled,
     refreshProgress,
