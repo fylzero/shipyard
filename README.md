@@ -106,7 +106,7 @@ Shipyard updates itself, so Homebrew leaves upgrades to it. If Shipyard is alrea
 2. Run it. It installs Shipyard for your user account without asking for administrator rights
 3. Launch Shipyard from the Start menu
 
-The installer isn't code-signed yet, so Windows SmartScreen may say **Windows protected your PC**. Click **More info**, then **Run anyway**. **Help → Check for Updates…** keeps Shipyard current.
+The installer is signed by RazorKode LLC. Right after a new release, Windows SmartScreen may still say **Windows protected your PC** until the release builds up downloads. If it does, click **More info**, then **Run anyway**. **Help → Check for Updates…** keeps Shipyard current.
 
 Shipyard finds Git on your `PATH` or in Git for Windows' install folder. Conflicted files open with the editor's command on your `PATH`, or from its usual install folder for Cursor, VS Code, Zed, and Sublime Text. The terminal panel starts PowerShell.
 

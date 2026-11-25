@@ -65,7 +65,7 @@ of them is secret.
 | `AZURE_SIGNING_PROFILE` | The certificate profile's name. Leave it unset to ship unsigned. |
 
 The Artifact Signing account, its certificate profile, and the RazorKode LLC
-identity validation are shared by Lockshot, Recon and Shipyard. Each app has its
+identity validation are shared by Lockshot, Recon, Shipyard and Dispatch. Each app has its
 own app registration with the **Artifact Signing Certificate Profile Signer** role
 on the account.
 
