@@ -41,12 +41,13 @@ Write-Host "SignTool: $SignTool"
 
 $Metadata = Join-Path $Root 'metadata.json'
 @{
-  Endpoint               = $Endpoint
+  # Microsoft's examples write the endpoint without a trailing slash.
+  Endpoint               = $Endpoint.TrimEnd('/')
   CodeSigningAccountName = $Account
   CertificateProfileName = $CertificateProfile
-  # Only the Azure CLI session from azure/login should be tried.
+  # Use the Azure CLI session from azure/login. This is the list from the
+  # client's README for "Azure CLI only", which leaves EnvironmentCredential in.
   ExcludeCredentials     = @(
-    'EnvironmentCredential',
     'ManagedIdentityCredential',
     'WorkloadIdentityCredential',
     'SharedTokenCacheCredential',
@@ -57,6 +58,19 @@ $Metadata = Join-Path $Root 'metadata.json'
     'InteractiveBrowserCredential'
   )
 } | ConvertTo-Json | Set-Content -Path $Metadata -Encoding utf8
+
+# Sign a throwaway file now, right after azure/login. This gets the Azure CLI
+# its Artifact Signing token while the job's GitHub OIDC token is still fresh;
+# it expires a few minutes after login, but the CLI caches the signing token
+# for about an hour, which covers the build. (Lockshot v1.6.1 failed when its
+# first signature came 10 minutes after login.) It also runs with /debug, so a
+# sign-in or permission problem fails here with the dlib's own error instead of
+# after the build, where Tauri shows only SignTool's last line.
+$Probe = Join-Path $Root 'signing-check.exe'
+Copy-Item $SignTool $Probe
+& $SignTool sign /v /debug /fd SHA256 /tr 'http://timestamp.acs.microsoft.com' /td SHA256 /dlib $Dlib /dmdf $Metadata $Probe
+if ($LASTEXITCODE -ne 0) { throw "Test signing failed (exit $LASTEXITCODE). See the SignTool output above." }
+Remove-Item $Probe
 
 $Config = Join-Path $Root 'tauri.windows-signing.json'
 @{
