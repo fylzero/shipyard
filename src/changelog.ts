@@ -6,6 +6,13 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.22.1",
+    date: "November 25, 2026",
+    notes: [
+      "On Windows, the Shipyard installer is now signed by RazorKode LLC, so Windows names RazorKode LLC as the publisher instead of an unknown one. For a little while after a new release, SmartScreen may still say Windows protected your PC; click More info, then Run anyway.",
+    ],
+  },
+  {
     version: "1.22.0",
     date: "November 25, 2026",
     notes: [
